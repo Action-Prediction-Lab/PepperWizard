@@ -1,0 +1,21 @@
+# Use an official Python runtime as a parent image
+FROM python:3.9-slim
+
+# Set the working directory in the container
+WORKDIR /usr/src/app
+
+# Copy the requirements file into the container
+COPY requirements.txt .
+
+# Install base requirements
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy and install the naoqi_proxy_client package
+COPY naoqi_proxy_client-0.1.0-py3-none-any.whl .
+RUN pip install naoqi_proxy_client-0.1.0-py3-none-any.whl
+
+# Copy the rest of the application's code into the container
+COPY pepper_wizard.py .
+
+# Define the command to run your app
+CMD ["python", "./pepper_wizard.py"]

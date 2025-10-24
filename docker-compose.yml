@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  # The PepperBox environment running the Python 2.7 shim server
+  pepper-robot-env:
+    image: pepper-robot-env:latest
+    privileged: true # For potential hardware access, though less critical now
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix # For running GUI apps like Choregraphe
+      - ../PepperBox/py3-naoqi-bridge:/home/pepperdev/apps/py3-naoqi-bridge # Mount for shim_server.py
+    ports:
+      - "5000:5000" # Expose the naoqi_proxy shim server port
+    environment:
+      - DISPLAY=${DISPLAY}
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      - NVIDIA_VISIBLE_DEVICES=all
+    # This section enables GPU access if available
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    # We run a shell to keep it alive and allow exec-ing into it.
+    # The shim server should be started manually inside the container for now.
+    command: ["/home/pepperdev/.pyenv/versions/2.7.18/bin/python", "/home/pepperdev/apps/py3-naoqi-bridge/shim_server.py"]
+
+  # The Dualshock publisher service
+  dualshock-publisher:
+    image: dualshock-publisher:latest
+    privileged: true # Needed to access /dev/input devices
+    volumes:
+      - /dev/input:/dev/input # Mount host's input devices
+    ports:
+      - "5556:5556" # Expose ZeroMQ port
+    restart: unless-stopped
+
+  # The PepperWizard bridge application
+  pepper-wizard:
+    image: pepper-wizard:latest
+    depends_on:
+      - pepper-robot-env
+      - dualshock-publisher
+    # stdin_open and tty are crucial for the interactive command prompt
+    stdin_open: true 
+    tty: true
+    restart: on-failure
