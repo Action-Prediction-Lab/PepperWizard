@@ -297,7 +297,7 @@ def main():
         while True:
             command = user_input("Enter Command (type 'help' for options): ")
             
-            if command.lower() == 'q' or command.lower() == 'exit':
+            if command.lower() == 'exit':
                 print("Shutting down PepperWizard...")
                 break
             elif command.lower() == 'help':
@@ -307,7 +307,7 @@ def main():
                 print("  R    - Put Robot to Rest")
                 print("  T    - Enter Text-to-Speech mode")
                 print("  Bat  - Check Robot Battery Status")
-                print("  q    - Exit PepperWizard application")
+                print("  q    - Quit Joystick Teleoperation")
                 print("  exit - Exit PepperWizard application")
             else:
                                 # The launcher function now only initiates actions, it doesn't handle 'q' or 'exit'
