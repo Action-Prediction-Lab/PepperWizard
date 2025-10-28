@@ -77,26 +77,28 @@ class TeleopThread(threading.Thread):
         left_y = message.get("axes", {}).get("left_stick_y", 0.0)
         left_x = message.get("axes", {}).get("left_stick_x", 0.0)
         right_y = message.get("axes", {}).get("right_stick_y", 0.0)
+        right_x = message.get("axes", {}).get("right_stick_x", 0.0)
 
         # Dead zone to prevent drift
         if abs(left_y) < 0.1: left_y = 0
         if abs(left_x) < 0.1: left_x = 0
         if abs(right_y) < 0.1: right_y = 0
+        if abs(right_x) < 0.1: right_x = 0
 
         if self.verbose:
-            print(f"[TeleopThread] Axes - LX:{left_x:.2f}, LY:{left_y:.2f}, RY:{right_y:.2f}")
+            print(f"[TeleopThread] Axes - LX:{left_x:.2f}, LY:{left_y:.2f}, RY:{right_y:.2f}, RX:{right_x:.2f}")
 
-        self.motion_mapping(self.client.ALMotion, left_x, left_y, right_y)
+        self.motion_mapping(self.client.ALMotion, left_x, left_y, right_y, right_x)
 
-    def motion_mapping(self, motion_service, lx, ly, ry):
+    def motion_mapping(self, motion_service, lx, ly, ry, rx):
         """Adapted from the original script's MotionMapping function."""
         v_x = 0.2  # Forward/backward speed
         v_y = 0.2  # Strafe speed
         v_theta = 0.5  # Rotational speed
 
-        command_x = -round(ly, 1) * v_x
-        command_y = -round(lx, 1) * v_y
-        command_theta = -round(ry, 1) * v_theta
+        command_x = -ly * v_x
+        command_y = -lx * v_y
+        command_theta = -rx * v_theta
 
         if self.verbose:
             print(f"[TeleopThread] Sending moveToward: x={command_x:.2f}, y={command_y:.2f}, theta={command_theta:.2f}")
