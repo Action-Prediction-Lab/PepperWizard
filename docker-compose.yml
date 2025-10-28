@@ -38,7 +38,9 @@ services:
 
   # The PepperWizard bridge application
   pepper-wizard:
+    build: .
     image: pepper-wizard:latest
+    command: ["python", "./pepper_wizard.py"]
     depends_on:
       - pepper-robot-env
       - dualshock-publisher

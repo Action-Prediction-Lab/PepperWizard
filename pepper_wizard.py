@@ -12,17 +12,27 @@ teleop_running = threading.Event()
 
 class TeleopThread(threading.Thread):
     """Thread for handling robot teleoperation."""
-    def __init__(self, naoqi_client):
+    def __init__(self, naoqi_client, verbose=False):
         super(TeleopThread, self).__init__()
         self.client = naoqi_client
+        self.verbose = verbose # Assign verbose here
+        if self.verbose:
+            print(f"[TeleopThread.__init__] Verbose mode is: {self.verbose}")
         self.context = zmq.Context()
         self.subscriber = self.context.socket(zmq.SUB)
         # We connect to the dualshock_publisher service by its hostname in the Docker network
-        self.subscriber.connect("tcp://dualshock_publisher:5556")
+        self.subscriber.connect("tcp://172.18.0.1:5556")
+        time.sleep(1) # Give time for the connection to establish
+        if self.verbose:
+            print("[TeleopThread.__init__] Connected to tcp://172.18.0.1:5556")
         self.subscriber.setsockopt_string(zmq.SUBSCRIBE, "")
+        if self.verbose:
+            print("[TeleopThread.__init__] Subscribed to all ZMQ messages")
 
     def run(self):
         """Main loop for the teleoperation thread."""
+        if self.verbose:
+            print("[TeleopThread.run()] Starting thread execution.")
         print(" --- Teleoperation Thread Started ---")
         print(" --- Press 'q' in the main terminal and Enter to stop ---")
         
@@ -32,11 +42,23 @@ class TeleopThread(threading.Thread):
         motion_service.setStiffnesses("Body", 1.0)
 
         while not teleop_running.is_set():
+            if self.verbose:
+                print("[TeleopThread.run()] Loop iteration...")
+            
+            # Set a timeout to avoid blocking indefinitely
+            poll_result = self.subscriber.poll(100) # 100ms timeout
+            if poll_result == 0:
+                if self.verbose:
+                    print("[TeleopThread.run()] ZMQ poll timed out (no message).")
+                continue # No message, continue loop
+            elif self.verbose:
+                print(f"[TeleopThread.run()] ZMQ poll returned: {poll_result} (message available).")
+
             try:
-                # Set a timeout to avoid blocking indefinitely
-                if self.subscriber.poll(100):
-                    message = self.subscriber.recv_json()
-                    self.handle_controller_input(message)
+                message = self.subscriber.recv_json()
+                if self.verbose:
+                    print(f"[TeleopThread] Received ZMQ message: {message}") # Debug print
+                self.handle_controller_input(message)
             except zmq.ZMQError as e:
                 print(f"ZMQ Error in TeleopThread: {e}")
                 break
@@ -61,6 +83,9 @@ class TeleopThread(threading.Thread):
         if abs(left_x) < 0.1: left_x = 0
         if abs(right_y) < 0.1: right_y = 0
 
+        if self.verbose:
+            print(f"[TeleopThread] Axes - LX:{left_x:.2f}, LY:{left_y:.2f}, RY:{right_y:.2f}")
+
         self.motion_mapping(self.client.ALMotion, left_x, left_y, right_y)
 
     def motion_mapping(self, motion_service, lx, ly, ry):
@@ -72,6 +97,9 @@ class TeleopThread(threading.Thread):
         command_x = -round(ly, 1) * v_x
         command_y = -round(lx, 1) * v_y
         command_theta = -round(ry, 1) * v_theta
+
+        if self.verbose:
+            print(f"[TeleopThread] Sending moveToward: x={command_x:.2f}, y={command_y:.2f}, theta={command_theta:.2f}")
         
         try:
             motion_service.moveToward(command_x, command_y, command_theta)
@@ -112,7 +140,7 @@ def battery_status(client):
     except NaoqiProxyError as e:
         print(f"Could not get battery status: {e}")
 
-def launcher(command, client, teleop_thread):
+def launcher(command, client, teleop_thread, args):
     """Launch actions based on user command."""
     if command.lower() == 'j':
         if teleop_thread is not None and teleop_thread.is_alive():
@@ -121,7 +149,7 @@ def launcher(command, client, teleop_thread):
 
         print("Launching Joystick Teleoperation...")
         teleop_running.clear()
-        thread = TeleopThread(client)
+        thread = TeleopThread(client, verbose=args.verbose)
         thread.start()
         return thread
     
@@ -159,18 +187,42 @@ def main():
     parser.add_argument("--proxy-ip", type=str, default="pepper-robot-env",
                         help="IP address of the PepperBox shim server.")
     parser.add_argument("--proxy-port", type=int, default=5000,
+
                         help="Port number of the PepperBox shim server.")
+
+    parser.add_argument("--verbose", action="store_true",
+
+                        help="Enable verbose debug output.")
+
     args = parser.parse_args()
 
     print_title()
 
+    client = None # Initialize client outside try for finally block access
+
     try:
+
         client = NaoqiClient(host=args.proxy_ip, port=args.proxy_port)
+
         # Ping a service to ensure connection
+
         client.ALTextToSpeech.getAvailableLanguages()
-    print(" --- PepperBox Proxy Connected ---")
-    print(" --- PepperWizard Ready ---")
-    print("Welcome to PepperWizard. Enter 'help' for available commands.")
+
+        print(" --- PepperBox Proxy Connected ---")
+
+        print(" --- PepperWizard Ready ---")
+
+        print("Welcome to PepperWizard. Enter 'help' for available commands.")
+
+    except NaoqiProxyError as e:
+
+        print(f"Failed to connect to PepperBox proxy at {args.proxy_ip}:{args.proxy_port}")
+
+        print(f"Error: {e}")
+
+        print("Please ensure the PepperBox container is running and accessible.")
+
+        sys.exit(1)
     
     teleop_thread = None
     try:
@@ -188,8 +240,9 @@ def main():
                 print("  q    - Exit PepperWizard application")
                 print("  exit - Exit PepperWizard application")
             else:
-                # The launcher function now only initiates actions, it doesn't handle 'q' or 'exit'
-                teleop_thread = launcher(command, client, teleop_thread)
+                                # The launcher function now only initiates actions, it doesn't handle 'q' or 'exit'
+                
+                                teleop_thread = launcher(command, client, teleop_thread, args)
             
     except KeyboardInterrupt:
         print("\nCaught KeyboardInterrupt. Shutting down...")
