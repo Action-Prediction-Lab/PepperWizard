@@ -12,9 +12,12 @@ teleop_running = threading.Event()
 
 class TeleopThread(threading.Thread):
     """Thread for handling robot teleoperation."""
-    def __init__(self, naoqi_client, verbose=False):
+    def __init__(self, naoqi_client, tracker_service, verbose=False):
         super(TeleopThread, self).__init__()
         self.client = naoqi_client
+        self.tracker_service = tracker_service
+        self.tracking_modes = ["Head", "WholeBody", "Move"]
+        self.current_mode_index = 0
         self.verbose = verbose # Assign verbose here
         if self.verbose:
             print(f"[TeleopThread.__init__] Verbose mode is: {self.verbose}")
@@ -39,11 +42,25 @@ class TeleopThread(threading.Thread):
         print("Waking up robot...")
         self.motion_service.wakeUp()
         print("Robot is awake.")
+        print("Setting tracking mode to: Head")
+        self.tracker_service.setMode("Head")
+        self.tracker_service.setMode("Head") # Send command twice
+        time.sleep(0.5) # Allow time for the mode to be set
+        print(f"Current tracking mode is: {self.tracker_service.getMode()}")
 
     def rest(self):
         print("Putting robot to rest...")
         self.motion_service.rest()
         print("Robot is at rest.")
+
+    def toggle_tracking_mode(self):
+        self.current_mode_index = (self.current_mode_index + 1) % len(self.tracking_modes)
+        new_mode = self.tracking_modes[self.current_mode_index]
+        print(f"Setting tracking mode to: {new_mode}")
+        self.tracker_service.setMode(new_mode)
+        self.tracker_service.setMode(new_mode) # Send command twice
+        time.sleep(0.5) # Allow time for the mode to be set
+        print(f"Current tracking mode is: {self.tracker_service.getMode()}")
 
     def run(self):
         """Main loop for the teleoperation thread."""
@@ -202,7 +219,7 @@ def launcher(command, client, teleop_thread, args):
 
         print("Launching Joystick Teleoperation...")
         teleop_running.clear()
-        thread = TeleopThread(client, verbose=args.verbose)
+        thread = TeleopThread(client, client.ALTracker, verbose=args.verbose)
         thread.start()
         return thread
     
@@ -218,8 +235,8 @@ def launcher(command, client, teleop_thread, args):
 
     elif command.lower() == 's':
         if teleop_thread is None:
-            teleop_thread = TeleopThread(client, verbose=args.verbose)
-        LaunchSocialState(teleop_thread.alife_service, teleop_thread.tracker_service, teleop_thread.awareness_service, teleop_thread.face_service, command.upper(), teleop_thread.social_perception_service)
+            teleop_thread = TeleopThread(client, client.ALTracker, verbose=args.verbose)
+        teleop_thread.toggle_tracking_mode()
 
     elif command.lower() == 't':
         pepper_talk(client)
