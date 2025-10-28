@@ -225,12 +225,12 @@ def launcher(command, client, teleop_thread, args):
     
     elif command.lower() == 'w':
         if teleop_thread is None:
-            teleop_thread = TeleopThread(client, verbose=args.verbose)
+            teleop_thread = TeleopThread(client, client.ALTracker, verbose=args.verbose)
         teleop_thread.wake_up()
 
     elif command.lower() == 'r':
         if teleop_thread is None:
-            teleop_thread = TeleopThread(client, verbose=args.verbose)
+            teleop_thread = TeleopThread(client, client.ALTracker, verbose=args.verbose)
         teleop_thread.rest()
 
     elif command.lower() == 's':
