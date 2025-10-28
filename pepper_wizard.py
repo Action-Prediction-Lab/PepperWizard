@@ -28,6 +28,22 @@ class TeleopThread(threading.Thread):
         self.subscriber.setsockopt_string(zmq.SUBSCRIBE, "")
         if self.verbose:
             print("[TeleopThread.__init__] Subscribed to all ZMQ messages")
+        self.motion_service = self.client.ALMotion # Initialize motion service here
+        self.alife_service = self.client.ALAutonomousLife
+        self.tracker_service = self.client.ALTracker
+        self.awareness_service = self.client.ALBasicAwareness
+        self.face_service = self.client.ALFaceDetection
+        self.social_perception_service = self.client.ALPeoplePerception
+
+    def wake_up(self):
+        print("Waking up robot...")
+        self.motion_service.wakeUp()
+        print("Robot is awake.")
+
+    def rest(self):
+        print("Putting robot to rest...")
+        self.motion_service.rest()
+        print("Robot is at rest.")
 
     def run(self):
         """Main loop for the teleoperation thread."""
@@ -142,6 +158,41 @@ def battery_status(client):
     except NaoqiProxyError as e:
         print(f"Could not get battery status: {e}")
 
+def SocialState(alife, tracker_service, awareness_service, face_service, interaction_switch):
+    alife.setAutonomousAbilityEnabled("BackgroundMovement", interaction_switch)
+    alife.setAutonomousAbilityEnabled("BasicAwareness", interaction_switch)
+    alife.setAutonomousAbilityEnabled("ListeningMovement", True)
+    alife.setAutonomousAbilityEnabled("SpeakingMovement", True)
+    alife.setAutonomousAbilityEnabled("AutonomousBlinking", True)
+    face_service.setTrackingEnabled(interaction_switch)
+    awareness_service.setEnabled(interaction_switch)
+    
+    basic_AwarenessState = awareness_service.isEnabled()
+
+    print("SocialState Status: " + str(basic_AwarenessState))
+
+    return
+
+def LaunchSocialState(alife, tracker_service, awareness_service, face_service, wizard_command, social_perception):
+    tracker_service.unregisterAllTargets()
+    tracker_service.setTimeOut(2000)
+    awareness_service.setEngagementMode("FullyEngaged")
+
+    social_perception.setMaximumDetectionRange(2.0)
+    social_perception.setTimeBeforePersonDisappears(2)
+    social_perception.setFastModeEnabled(True)
+    social_perception.setMovementDetectionEnabled(True)
+
+    SocialState(alife, tracker_service, awareness_service, face_service, True)
+    if wizard_command == 'S':
+        tracking_mode = "Head"
+    
+    tracker_service.setMode(tracking_mode)
+    print("Tracking Mode: ", str(tracker_service.getMode()))
+
+
+
+
 def launcher(command, client, teleop_thread, args):
     """Launch actions based on user command."""
     if command.lower() == 'j':
@@ -155,6 +206,21 @@ def launcher(command, client, teleop_thread, args):
         thread.start()
         return thread
     
+    elif command.lower() == 'w':
+        if teleop_thread is None:
+            teleop_thread = TeleopThread(client, verbose=args.verbose)
+        teleop_thread.wake_up()
+
+    elif command.lower() == 'r':
+        if teleop_thread is None:
+            teleop_thread = TeleopThread(client, verbose=args.verbose)
+        teleop_thread.rest()
+
+    elif command.lower() == 's':
+        if teleop_thread is None:
+            teleop_thread = TeleopThread(client, verbose=args.verbose)
+        LaunchSocialState(teleop_thread.alife_service, teleop_thread.tracker_service, teleop_thread.awareness_service, teleop_thread.face_service, command.upper(), teleop_thread.social_perception_service)
+
     elif command.lower() == 't':
         pepper_talk(client)
 
@@ -237,6 +303,8 @@ def main():
             elif command.lower() == 'help':
                 print("Available commands:")
                 print("  J    - Start Joystick Teleoperation")
+                print("  W    - Wake Up Robot")
+                print("  R    - Put Robot to Rest")
                 print("  T    - Enter Text-to-Speech mode")
                 print("  Bat  - Check Robot Battery Status")
                 print("  q    - Exit PepperWizard application")
