@@ -6,6 +6,7 @@ import time
 import zmq
 import numpy as np
 from naoqi_proxy import NaoqiClient, NaoqiProxyError
+import json
 
 # Global flag to signal the teleoperation thread to stop
 teleop_running = threading.Event()
@@ -217,10 +218,52 @@ def LaunchSocialState(alife, tracker_service, awareness_service, face_service, w
     tracker_service.setMode(tracking_mode)
     print("Tracking Mode: ", str(tracker_service.getMode()))
 
+def load_animations():
+    """Load animations from the animations.json file."""
+    try:
+        with open("animations.json", "r") as f:
+            animations = json.load(f)
+        print("Animations loaded successfully.")
+        return animations
+    except (IOError, json.JSONDecodeError) as e:
+        print(f"Error loading animations: {e}")
+        return {}
 
+def animated_pepper_talk(client, animations):
+    """Handle animated Text-to-Speech functionality."""
+    if not animations:
+        print("Animations not loaded. Please check the animations.json file.")
+        return
 
+    print(" --- Entering Animated PepperTalk ---")
+    print("Available animations:")
+    for key, value in animations.items():
+        print(f"  {value} - {key}")
+    
+    animation_key = user_input("Select an animation key: ")
+    animation_tag = None
+    for key, value in animations.items():
+        if value.lower() == animation_key.lower():
+            animation_tag = key
+            break
+    
+    if not animation_tag:
+        print("Invalid animation key.")
+        return
 
-def launcher(command, client, teleop_thread, args):
+    tts_service = client.ALAnimatedSpeech
+    
+    while True:
+        line = user_input(f"Pepper ({animation_tag}): ")
+        if line.lower() == 'q':
+            break
+        try:
+            tts_service.say(f"^startTag({animation_tag}) {line} ^stopTag({animation_tag})")
+        except NaoqiProxyError as e:
+            print(f"TTS Error: {e}")
+            break
+
+def launcher(command, client, teleop_thread, args, animations):
     """Launch actions based on user command."""
     if command.lower() == 'j':
         if teleop_thread is not None and teleop_thread.is_alive():
@@ -256,6 +299,9 @@ def launcher(command, client, teleop_thread, args):
     elif command.lower() == 't':
         pepper_talk(client)
 
+    elif command.lower() == 'at':
+        animated_pepper_talk(client, animations)
+
     elif command.lower() == 'bat':
         battery_status(client)
 
@@ -267,7 +313,7 @@ def launcher(command, client, teleop_thread, args):
         return None
         
     else:
-        print("Command not recognised. Available commands: J (Joystick), T (Talk), Bat (Battery), q (Quit Joystick)")
+        print("Command not recognised. Available commands: J (Joystick), T (Talk), AT (Animated Talk), Bat (Battery), q (Quit Joystick)")
     
     return teleop_thread
 
@@ -297,6 +343,8 @@ def main():
     args = parser.parse_args()
 
     print_title()
+
+    animations = load_animations()
 
     client = None # Initialize client outside try for finally block access
 
@@ -339,13 +387,14 @@ def main():
                 print("  W    - Wake Up Robot")
                 print("  R    - Put Robot to Rest")
                 print("  T    - Enter Text-to-Speech mode")
+                print("  AT   - Enter Animated Text-to-Speech mode")
                 print("  Bat  - Check Robot Battery Status")
                 print("  q    - Quit Joystick Teleoperation")
                 print("  exit - Exit PepperWizard application")
             else:
                                 # The launcher function now only initiates actions, it doesn't handle 'q' or 'exit'
                 
-                                teleop_thread = launcher(command, client, teleop_thread, args)
+                                teleop_thread = launcher(command, client, teleop_thread, args, animations)
             
     except KeyboardInterrupt:
         print("\nCaught KeyboardInterrupt. Shutting down...")
