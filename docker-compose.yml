@@ -28,7 +28,7 @@ services:
 
   # The Dualshock publisher service
   dualshock-publisher:
-    image: dualshock-publisher:latest
+    image: jwgcurrie/dualshock_publisher:latest
     privileged: true # Needed to access /dev/input devices
     volumes:
       - /dev/input:/dev/input # Mount host's input devices
