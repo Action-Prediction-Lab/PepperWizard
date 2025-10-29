@@ -19,6 +19,7 @@ class TeleopThread(threading.Thread):
         self.tracking_modes = ["Head", "WholeBody", "Move"]
         self.current_mode_index = 0
         self.verbose = verbose # Assign verbose here
+        self.social_state_enabled = False
         if self.verbose:
             print(f"[TeleopThread.__init__] Verbose mode is: {self.verbose}")
         self.context = zmq.Context()
@@ -42,11 +43,20 @@ class TeleopThread(threading.Thread):
         print("Waking up robot...")
         self.motion_service.wakeUp()
         print("Robot is awake.")
-        print("Setting tracking mode to: Head")
-        self.tracker_service.setMode("Head")
-        self.tracker_service.setMode("Head") # Send command twice
-        time.sleep(0.5) # Allow time for the mode to be set
-        print(f"Current tracking mode is: {self.tracker_service.getMode()}")
+
+    def toggle_social_state(self):
+        self.social_state_enabled = not self.social_state_enabled
+        
+        self.alife_service.setAutonomousAbilityEnabled("BackgroundMovement", self.social_state_enabled)
+        self.alife_service.setAutonomousAbilityEnabled("BasicAwareness", self.social_state_enabled)
+        self.alife_service.setAutonomousAbilityEnabled("ListeningMovement", self.social_state_enabled)
+        self.alife_service.setAutonomousAbilityEnabled("SpeakingMovement", self.social_state_enabled)
+        self.alife_service.setAutonomousAbilityEnabled("AutonomousBlinking", self.social_state_enabled)
+        self.face_service.setTrackingEnabled(self.social_state_enabled)
+        self.awareness_service.setEnabled(self.social_state_enabled)
+        
+        basic_AwarenessState = self.awareness_service.isEnabled()
+        print(f"SocialState Status: {basic_AwarenessState}")
 
     def rest(self):
         print("Putting robot to rest...")
@@ -238,6 +248,11 @@ def launcher(command, client, teleop_thread, args):
             teleop_thread = TeleopThread(client, client.ALTracker, verbose=args.verbose)
         teleop_thread.toggle_tracking_mode()
 
+    elif command.lower() == 'a':
+        if teleop_thread is None:
+            teleop_thread = TeleopThread(client, client.ALTracker, verbose=args.verbose)
+        teleop_thread.toggle_social_state()
+
     elif command.lower() == 't':
         pepper_talk(client)
 
@@ -319,6 +334,7 @@ def main():
                 break
             elif command.lower() == 'help':
                 print("Available commands:")
+                print("  A    - Toggle Autonomous/Social State")
                 print("  J    - Start Joystick Teleoperation")
                 print("  W    - Wake Up Robot")
                 print("  R    - Put Robot to Rest")
