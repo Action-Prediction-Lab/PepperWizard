@@ -3,7 +3,8 @@ version: '3.8'
 services:
   # The PepperBox environment running the Python 2.7 shim server
   pepper-robot-env:
-    image: pepper-robot-env:latest
+    #image: jwgcurrie/pepper-robot-env:latest
+    image: jwgcurrie/pepper-direct-env:latest
     privileged: true # For potential hardware access, though less critical now
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix # For running GUI apps like Choregraphe
@@ -47,6 +48,7 @@ services:
     # stdin_open and tty are crucial for the interactive command prompt
     stdin_open: true 
     tty: true
+    dns: 8.8.8.8
     volumes:
       - .:/usr/src/app # Mount the host project directory into the container
     restart: on-failure
