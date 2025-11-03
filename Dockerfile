@@ -15,8 +15,9 @@ COPY naoqi_proxy_client-0.1.0-py3-none-any.whl .
 RUN pip install naoqi_proxy_client-0.1.0-py3-none-any.whl
 
 # Copy the rest of the application's code into the container
-COPY pepper_wizard.py .
+COPY pepper_wizard/ ./pepper_wizard/
 COPY animations.json .
+COPY quick_responses.json .
 
 # Define the command to run your app
-CMD ["python", "./pepper_wizard.py"]
+CMD ["python", "-m", "pepper_wizard.main"]
