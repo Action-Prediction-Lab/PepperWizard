@@ -36,7 +36,7 @@ def load_emoticon_map(file_path="emoticon_map.json"):
 
 class Config:
     """A class to hold the application configuration."""
-    def __init__(self, animations_path="animations.json", quick_responses_path="quick_responses.json", emoticon_map_path="emoticon_map.json"):
+    def __init__(self, animations_path="pepper_wizard/config/animations.json", quick_responses_path="pepper_wizard/config/quick_responses.json", emoticon_map_path="pepper_wizard/config/emoticon_map.json"):
         self.animations = load_animations(animations_path)
         self.quick_responses = load_quick_responses(quick_responses_path)
         self.emoticon_map = load_emoticon_map(emoticon_map_path)

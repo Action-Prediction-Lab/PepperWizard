@@ -52,26 +52,7 @@ The `pepper-wizard` application itself is structured as follows:
 
 Once the application is running, you can enter commands into the terminal.
 
-### Available Commands
-
-*   `A`    - Toggle Autonomous/Social State
-*   `J`    - Start Joystick Teleoperation
-*   `W`    - Wake Up Robot
-*   `R`    - Put Robot to Rest
-*   `T`    - Enter Unified Talk Mode (supports emoticon-triggered animations)
-*   `Bat`  - Check Robot Battery Status
-*   `q`    - Quit Joystick Teleoperation
-*   `help` - Show the help message
-*   `exit` - Exit the PepperWizard application
-
-## Usage
-
-Once the application is running, you can enter commands into the terminal. For the Unified Talk Mode (`T` command):
-
-*   **Plain Speech:** Enter any text, and the robot will speak it without animation.
-*   **Animated Speech:** Prefix your text with a recognized emoticon (e.g., `:) Hello there!`). The robot will speak the message with the animation mapped to that emoticon. Available emoticons are defined in `emoticon_map.json`.
-
-### Available Commands
+### Main Menu Commands
 
 *   `A`    - Toggle Autonomous/Social State
 *   `J`    - Start Joystick Teleoperation
@@ -80,8 +61,19 @@ Once the application is running, you can enter commands into the terminal. For t
 *   `T`    - Enter Unified Talk Mode
 *   `Bat`  - Check Robot Battery Status
 *   `q`    - Quit Joystick Teleoperation
-*   `help` - Show the help message
+*   `help` - Show this help message
 *   `exit` - Exit the PepperWizard application
+
+### Unified Talk Mode (`T` command)
+
+When in Unified Talk Mode, you can speak sentences and trigger animations:
+
+*   **Plain Speech:** Enter any text, and the robot will speak it without animation.
+*   **Emoticon-Triggered Animation:** Include a recognized emoticon (e.g., `:)`, `XD`) anywhere in your sentence. The robot will speak the message (with the emoticon removed) and play the corresponding animation concurrently. Available emoticons are defined in `emoticon_map.json`.
+*   **Hotkey-Triggered Blocking Animation:** Include a hotkey (e.g., `/N`, `/Y`) anywhere in your sentence. The robot will speak the message (with the hotkey removed) and then play the corresponding animation for its full duration. Hotkeys are defined in `quick_responses.json`.
+
+*   `/help` - Show contextual help for the talk mode.
+*   `/q`    - Quit talk mode and return to the main menu.
 
 ## Configuration
 
@@ -89,4 +81,4 @@ You can customise some of the robot's behaviors by editing the JSON files:
 
 *   **`animations.json`**: Maps animation names to single-character keys. These tags are used internally and by `emoticon_map.json`.
 *   **`emoticon_map.json`**: Maps emoticons (e.g., `:)`, `:(`) to animation names (e.g., `happy`, `sad`). This allows for dynamic animation triggering in Unified Talk Mode.
-*   **`quick_responses.json`**: Defines a set of pre-canned phrases and animations that can be triggered by a single key. (Note: The functionality to trigger these directly is not yet fully implemented in the CLI).
+*   **`quick_responses.json`**: Defines phrases and animations that can be triggered by hotkeys (e.g., `/N`) in the Unified Talk Mode. The `animation` field in each entry is used to determine which animation to play.

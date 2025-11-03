@@ -47,6 +47,16 @@ class RobotClient:
         except NaoqiProxyError as e:
             print(f"TTS Error: {e}")
 
+    def play_animation_blocking(self, animation_name):
+        """Plays an animation and waits for it to finish."""
+        try:
+            if self.verbose:
+                print(f"[DEBUG] RobotClient.play_animation_blocking with tag: '{animation_name}'")
+            # runTag is blocking by default
+            self.client.ALAnimationPlayer.runTag(animation_name)
+        except NaoqiProxyError as e:
+            print(f"Animation Error: {e}")
+
     def get_battery_charge(self):
         """Returns the robot's battery charge percentage."""
         try:

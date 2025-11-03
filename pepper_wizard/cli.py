@@ -34,7 +34,7 @@ def print_talk_mode_help():
     print("Speak any sentence directly.")
     print("Trigger animations using:")
     print("  - Emoticons: Add an emoticon (e.g., :), XD) anywhere in your sentence.")
-    print("  - Hotkeys: Add a hotkey (e.g., \\N, \\Y) anywhere in your sentence.")
+    print("  - Hotkeys: Add a hotkey (e.g., /N, /Y) anywhere in your sentence.")
     print("Commands:")
     print("  /help - Show this help message")
     print("  /q    - Quit talk mode")
@@ -57,8 +57,7 @@ def pepper_talk_session(robot_client, config, verbose=False):
         found_emoticon = False
         found_hotkey = False
 
-        # 1. Check for emoticons
-        # Prioritize longer emoticons to avoid partial matches
+        # 1. Check for emoticons (non-blocking animation)
         sorted_emoticons = sorted(config.emoticon_map.keys(), key=len, reverse=True)
         for emoticon in sorted_emoticons:
             if emoticon in line:
@@ -79,9 +78,9 @@ def pepper_talk_session(robot_client, config, verbose=False):
         if found_emoticon:
             continue
 
-        # 2. If no emoticon, check for quick response hotkeys (e.g., \N)
+        # 2. If no emoticon, check for quick response hotkeys (blocking animation)
         for key, response_data in config.quick_responses.items():
-            hotkey = f"\\{key}"
+            hotkey = f"/{key}"
             if hotkey in line:
                 if verbose:
                     print(f"[DEBUG] Found hotkey: '{hotkey}'")
@@ -93,7 +92,11 @@ def pepper_talk_session(robot_client, config, verbose=False):
                     if verbose:
                         print(f"[DEBUG] Message to speak: '{message_to_speak}'")
                     
-                    robot_client.animated_talk(animation_tag, message_to_speak)
+                    # Speak first, then play animation
+                    if message_to_speak:
+                        robot_client.talk(message_to_speak)
+                    robot_client.play_animation_blocking(animation_tag)
+
                     found_hotkey = True
                     break
                 else:
