@@ -18,8 +18,7 @@ def print_help():
     print("  J    - Start Joystick Teleoperation")
     print("  W    - Wake Up Robot")
     print("  R    - Put Robot to Rest")
-    print("  T    - Enter Text-to-Speech mode")
-    print("  AT   - Enter Animated Text-to-Speech mode")
+    print("  T    - Enter Unified Talk Mode")
     print("  Bat  - Check Robot Battery Status")
     print("  q    - Quit Joystick Teleoperation")
     print("  help - Show this help message")
@@ -29,46 +28,83 @@ def user_input(prompt):
     """Gets input from the user."""
     return input(prompt)
 
+def print_talk_mode_help():
+    """Prints the help message for the unified talk mode."""
+    print("--- Talk Mode Help ---")
+    print("Speak any sentence directly.")
+    print("Trigger animations using:")
+    print("  - Emoticons: Add an emoticon (e.g., :), XD) anywhere in your sentence.")
+    print("  - Hotkeys: Add a hotkey (e.g., \\N, \\Y) anywhere in your sentence.")
+    print("Commands:")
+    print("  /help - Show this help message")
+    print("  /q    - Quit talk mode")
+    print("---------------------")
+
 def pepper_talk_session(robot_client, config, verbose=False):
     """Handles an interactive unified Text-to-Speech session with emoticon-triggered animations."""
-    print(" --- Entering Unified PepperTalk --- (prefix with :) :( XD for animations, type /q to exit)")
+    print(" --- Entering Unified PepperTalk --- (type /help for options, /q to exit)")
     while True:
         line = user_input("Pepper: ")
         if line.lower() == '/q':
             break
+        if line.lower() == '/help':
+            print_talk_mode_help()
+            continue
 
         if verbose:
             print(f"[DEBUG] Raw input: '{line}'")
 
-        found_emoticon = None
-        animation_tag = None
-        message_to_speak = line
+        found_emoticon = False
+        found_hotkey = False
 
-        # Check for emoticons anywhere in the line
-        for emoticon, tag in config.emoticon_map.items():
+        # 1. Check for emoticons
+        # Prioritize longer emoticons to avoid partial matches
+        sorted_emoticons = sorted(config.emoticon_map.keys(), key=len, reverse=True)
+        for emoticon in sorted_emoticons:
             if emoticon in line:
                 if verbose:
-                    print(f"[DEBUG] Found emoticon: '{emoticon}' which maps to animation name: '{tag}'")
-                found_emoticon = emoticon
-                animation_tag = tag # The tag from the emoticon map IS the animation name (e.g., 'happy')
+                    print(f"[DEBUG] Found emoticon: '{emoticon}'")
+                animation_tag = config.emoticon_map[emoticon]
                 if verbose:
                     print(f"[DEBUG] Found animation tag: '{animation_tag}'")
+                
                 message_to_speak = line.replace(emoticon, '').strip()
                 if verbose:
                     print(f"[DEBUG] Message to speak: '{message_to_speak}'")
+
+                robot_client.animated_talk(animation_tag, message_to_speak)
+                found_emoticon = True
                 break
         
-        if found_emoticon and animation_tag:
+        if found_emoticon:
+            continue
+
+        # 2. If no emoticon, check for quick response hotkeys (e.g., \N)
+        for key, response_data in config.quick_responses.items():
+            hotkey = f"\\{key}"
+            if hotkey in line:
+                if verbose:
+                    print(f"[DEBUG] Found hotkey: '{hotkey}'")
+                animation_tag = response_data.get('animation')
+                if animation_tag:
+                    if verbose:
+                        print(f"[DEBUG] Found animation tag: '{animation_tag}'")
+                    message_to_speak = line.replace(hotkey, '').strip()
+                    if verbose:
+                        print(f"[DEBUG] Message to speak: '{message_to_speak}'")
+                    
+                    robot_client.animated_talk(animation_tag, message_to_speak)
+                    found_hotkey = True
+                    break
+                else:
+                    if verbose:
+                        print(f"[DEBUG] Hotkey '{hotkey}' found, but no animation defined for it.")
+
+        if found_hotkey:
+            continue
+
+        # 3. If nothing else, perform regular talk
+        if line:
             if verbose:
-                print(f"[DEBUG] Calling animated_talk with tag: '{animation_tag}' and message: '{message_to_speak}'")
-            if message_to_speak:
-                robot_client.animated_talk(animation_tag, message_to_speak)
-            else:
-                print("No message provided after emoticon. Speaking with animation.")
-                robot_client.animated_talk(animation_tag, "")
-        elif message_to_speak:
-            if verbose:
-                print(f"[DEBUG] Calling talk with message: '{message_to_speak}'")
-            robot_client.talk(message_to_speak)
-        else:
-            print("No message to speak.")
+                print(f"[DEBUG] No emoticon or hotkey found. Calling talk with message: '{line}'")
+            robot_client.talk(line)
