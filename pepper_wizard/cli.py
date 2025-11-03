@@ -9,7 +9,8 @@ def print_title():
     print(" |____|    \___  >   __/|   __/ \___  >__|    \_/\  / |__/_____ \(____  /__|  \____ | ")
     print("                 |__|   |__|                      \/           \/     \/           \/ ")
     print("---------------------------------------------------------------------------------------")
-    print(" - jwgcurrie V0.2")
+    print(" - jwgcurrie")
+    print(" - V 2.0")
 
 def print_help():
     """Prints the help message."""
@@ -18,8 +19,8 @@ def print_help():
     print("  J    - Start Joystick Teleoperation")
     print("  W    - Wake Up Robot")
     print("  R    - Put Robot to Rest")
-    print("  T    - Enter Unified Talk Mode")
-    print("  Bat  - Check Robot Battery Status")
+    print("  T    - Enter Talk Mode")
+    print("  Bat  - Check Battery Status")
     print("  q    - Quit Joystick Teleoperation")
     print("  help - Show this help message")
     print("  exit - Exit PepperWizard application")
