@@ -22,7 +22,7 @@ def main():
     config = load_config()
 
     try:
-        robot_client = RobotClient(host=args.proxy_ip, port=args.proxy_port)
+        robot_client = RobotClient(host=args.proxy_ip, port=args.proxy_port, verbose=args.verbose)
     except Exception:
         sys.exit(1)
 

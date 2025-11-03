@@ -1,0 +1,38 @@
+{
+  "T": {
+    "phrase": "MMM",
+    "animation": "estimate",
+    "tuning": "\\rspd=50\\ ",
+    "stop": "stopTag"
+  },
+  "t": {
+    "phrase": "huh",
+    "animation": "think",
+    "tuning": "\\rspd=25\\ ",
+    "stop": "stopTag"
+  },
+  "Y": {
+    "phrase": "yes",
+    "animation": "affirmative",
+    "tuning": "\\rspd=100\\ ",
+    "stop": "stopTag"
+  },
+  "N": {
+    "phrase": "no",
+    "animation": "no",
+    "tuning": "\\rspd=100\\ ",
+    "stop": "waitTag"
+  },
+  "H": {
+    "phrase": "hello",
+    "animation": "hi",
+    "tuning": "\\rspd=100\\ ",
+    "stop": "waitTag"
+  },
+  "U": {
+    "phrase": "I am not sure",
+    "animation": "not_know",
+    "tuning": "\\rspd=100\\ ",
+    "stop": "stopTag"
+  }
+}

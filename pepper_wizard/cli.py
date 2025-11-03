@@ -7,9 +7,9 @@ def print_title():
     print(" |     ___// __  \____  \____ \_/ __ \_  __ \   \/\   /  \___   /\__  \_  __ \/ __  | ")
     print(" |    |   \  ___/|  |_> >  |_> >  ___/|  | \/        /|  |/    /  / __ \|  | \/ /_/ | ")
     print(" |____|    \___  >   __/|   __/ \___  >__|    \_/\  / |__/_____ \(____  /__|  \____ | ")
-    print("               |__|   |__|                       \/           \/     \/           \/ ")
+    print("                 |__|   |__|                      \/           \/     \/           \/ ")
     print("---------------------------------------------------------------------------------------")
-    print(" - jwgcurrie (Refactored for modular architecture)")
+    print(" - jwgcurrie V0.2")
 
 def print_help():
     """Prints the help message."""
@@ -29,39 +29,46 @@ def user_input(prompt):
     """Gets input from the user."""
     return input(prompt)
 
-def pepper_talk_session(robot_client):
-    """Handles an interactive Text-to-Speech session."""
-    print(" --- Entering PepperTalk --- (type 'q' to exit)")
+def pepper_talk_session(robot_client, config, verbose=False):
+    """Handles an interactive unified Text-to-Speech session with emoticon-triggered animations."""
+    print(" --- Entering Unified PepperTalk --- (prefix with :) :( XD for animations, type /q to exit)")
     while True:
         line = user_input("Pepper: ")
-        if line.lower() == 'q':
+        if line.lower() == '/q':
             break
-        robot_client.talk(line)
 
-def animated_pepper_talk_session(robot_client, animations):
-    """Handles an interactive animated Text-to-Speech session."""
-    if not animations:
-        print("Animations not loaded. Please check the animations.json file.")
-        return
+        if verbose:
+            print(f"[DEBUG] Raw input: '{line}'")
 
-    print(" --- Entering Animated PepperTalk ---")
-    print("Available animations:")
-    for key, value in animations.items():
-        print(f"  {value} - {key}")
-    
-    animation_key = user_input("Select an animation key: ")
-    animation_tag = None
-    for key, value in animations.items():
-        if value.lower() == animation_key.lower():
-            animation_tag = key
-            break
-    
-    if not animation_tag:
-        print("Invalid animation key.")
-        return
+        found_emoticon = None
+        animation_tag = None
+        message_to_speak = line
 
-    while True:
-        line = user_input(f"Pepper ({animation_tag}): ")
-        if line.lower() == 'q':
-            break
-        robot_client.animated_talk(animation_tag, line)
+        # Check for emoticons anywhere in the line
+        for emoticon, tag in config.emoticon_map.items():
+            if emoticon in line:
+                if verbose:
+                    print(f"[DEBUG] Found emoticon: '{emoticon}' which maps to animation name: '{tag}'")
+                found_emoticon = emoticon
+                animation_tag = tag # The tag from the emoticon map IS the animation name (e.g., 'happy')
+                if verbose:
+                    print(f"[DEBUG] Found animation tag: '{animation_tag}'")
+                message_to_speak = line.replace(emoticon, '').strip()
+                if verbose:
+                    print(f"[DEBUG] Message to speak: '{message_to_speak}'")
+                break
+        
+        if found_emoticon and animation_tag:
+            if verbose:
+                print(f"[DEBUG] Calling animated_talk with tag: '{animation_tag}' and message: '{message_to_speak}'")
+            if message_to_speak:
+                robot_client.animated_talk(animation_tag, message_to_speak)
+            else:
+                print("No message provided after emoticon. Speaking with animation.")
+                robot_client.animated_talk(animation_tag, "")
+        elif message_to_speak:
+            if verbose:
+                print(f"[DEBUG] Calling talk with message: '{message_to_speak}'")
+            robot_client.talk(message_to_speak)
+        else:
+            print("No message to speak.")

@@ -3,7 +3,8 @@ from naoqi_proxy import NaoqiClient, NaoqiProxyError
 
 class RobotClient:
     """A wrapper around the NaoqiClient to provide a high-level API for controlling the robot."""
-    def __init__(self, host, port):
+    def __init__(self, host, port, verbose=False):
+        self.verbose = verbose
         try:
             self.client = NaoqiClient(host=host, port=port)
             # Ping a service to ensure connection
@@ -30,6 +31,8 @@ class RobotClient:
     def talk(self, message):
         """Makes the robot say a message."""
         try:
+            if self.verbose:
+                print(f"[DEBUG] RobotClient.talk: '{message}'")
             self.client.ALTextToSpeech.say(message)
         except NaoqiProxyError as e:
             print(f"TTS Error: {e}")
@@ -37,7 +40,10 @@ class RobotClient:
     def animated_talk(self, animation_tag, message):
         """Makes the robot say a message with an animation."""
         try:
-            self.client.ALAnimatedSpeech.say(f"^startTag({animation_tag}) {message} ^stopTag({animation_tag})")
+            say_string = f"^startTag({animation_tag}) {message} ^stopTag({animation_tag})"
+            if self.verbose:
+                print(f"[DEBUG] RobotClient.animated_talk: '{say_string}'")
+            self.client.ALAnimatedSpeech.say(say_string)
         except NaoqiProxyError as e:
             print(f"TTS Error: {e}")
 

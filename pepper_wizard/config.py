@@ -23,11 +23,23 @@ def load_quick_responses(file_path="quick_responses.json"):
         print(f"Error loading quick responses from {file_path}: {e}")
         return {}
 
+def load_emoticon_map(file_path="emoticon_map.json"):
+    """Load emoticon to animation tag mappings from a JSON file."""
+    try:
+        with open(file_path, "r") as f:
+            emoticon_map = json.load(f)
+        print("Emoticon map loaded successfully.")
+        return emoticon_map
+    except (IOError, json.JSONDecodeError) as e:
+        print(f"Error loading emoticon map from {file_path}: {e}")
+        return {}
+
 class Config:
     """A class to hold the application configuration."""
-    def __init__(self, animations_path="animations.json", quick_responses_path="quick_responses.json"):
+    def __init__(self, animations_path="animations.json", quick_responses_path="quick_responses.json", emoticon_map_path="emoticon_map.json"):
         self.animations = load_animations(animations_path)
         self.quick_responses = load_quick_responses(quick_responses_path)
+        self.emoticon_map = load_emoticon_map(emoticon_map_path)
 
 def load_config():
     """Load all configurations."""
