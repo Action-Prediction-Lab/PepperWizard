@@ -1,0 +1,11 @@
+# Python bytecode
+__pycache__/
+*.pyc
+
+# Temporary files
+tmp/
+
+# Local test files
+zmq_test_subscriber.py
+zmq_test_subscriber_local.py
+TODO.txt

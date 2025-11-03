@@ -27,9 +27,7 @@ class CommandHandler:
         elif command == 'a':
             self.social_state_enabled = self.robot_client.toggle_social_state(self.social_state_enabled)
         elif command == 't':
-            cli.pepper_talk_session(self.robot_client)
-        elif command == 'at':
-            cli.animated_pepper_talk_session(self.robot_client, self.config.animations)
+            cli.pepper_talk_session(self.robot_client, self.config, self.verbose)
         elif command == 'bat':
             self.show_battery_status()
         elif command == 'q':

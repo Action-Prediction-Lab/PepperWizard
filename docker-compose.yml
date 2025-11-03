@@ -47,4 +47,6 @@ services:
     # stdin_open and tty are crucial for the interactive command prompt
     stdin_open: true 
     tty: true
+    volumes:
+      - .:/usr/src/app # Mount the host project directory into the container
     restart: on-failure
