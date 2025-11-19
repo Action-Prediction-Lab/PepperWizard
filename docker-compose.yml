@@ -3,12 +3,10 @@ version: '3.8'
 services:
   # The PepperBox environment running the Python 2.7 shim server
   pepper-robot-env:
-    #image: jwgcurrie/pepper-robot-env:latest
-    image: jwgcurrie/pepper-direct-env:latest
+    image: jwgcurrie/pepper-direct-env:1.1
     privileged: true # For potential hardware access, though less critical now
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix # For running GUI apps like Choregraphe
-      - ../PepperBox/py3-naoqi-bridge:/home/pepperdev/apps/py3-naoqi-bridge # Mount for shim_server.py
     ports:
       - "5000:5000" # Expose the naoqi_proxy shim server port
     environment:
@@ -25,7 +23,7 @@ services:
               capabilities: [gpu]
     # We run a shell to keep it alive and allow exec-ing into it.
     # The shim server should be started manually inside the container for now.
-    command: ["/home/pepperdev/.pyenv/versions/2.7.18/bin/python", "/home/pepperdev/apps/py3-naoqi-bridge/shim_server.py"]
+    command: ["/home/pepperdev/.pyenv/versions/2.7.18/bin/python", "/home/pepperdev/py3-naoqi-bridge/shim_server.py"]
 
   # The Dualshock publisher service
   dualshock-publisher:
