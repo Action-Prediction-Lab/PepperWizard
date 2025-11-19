@@ -57,23 +57,20 @@ def gaze_at_marker(robot_client, marker_id, marker_size, search_timeout):
 
     # --- Task Posture (Breath and LRArm_position) ---
     print("Setting task posture...")
-    # Breath - Commented out due to persistent proxy-related errors with setBreathConfig/setBreathEnabled,
-    # likely due to deprecated method handling in the proxy/shim layer.
-    # print(f"DEBUG: Attempting setBreathConfig with Bpm={15.0} and Amplitude={0.99} (split calls version)")
-    # motion_service.setBreathConfig([["Bpm", 15.0]])
-    # motion_service.setBreathConfig([["Amplitude", 0.99]])
-    # motion_service.setBreathEnabled("Legs", True)
+    # Breath - Re-enabling after proxy fix
+    motion_service.setBreathConfig([["Bpm", 15.0], ["Amplitude", 0.99]])
+    motion_service.setBreathEnabled("Legs", True)
 
-    # LRArm_position - Commented out due to persistent proxy-related errors with angleInterpolationWithSpeed.
-    # This is likely a serialization bug in the proxy for complex argument types.
-    # motion_service.setExternalCollisionProtectionEnabled("RArm", False)
-    # motion_service.setExternalCollisionProtectionEnabled("LArm", False)
-    # joint_names_lr = ("RShoulderPitch", "RShoulderRoll", "RElbowYaw", "RElbowRoll", "RWristYaw",
-    #                   "LShoulderPitch", "LShoulderRoll", "LElbowYaw", "LElbowRoll", "LWristYaw")
+    # LRArm_position - Re-enabling after proxy fix
+    motion_service.setExternalCollisionProtectionEnabled("RArm", False)
+    motion_service.setExternalCollisionProtectionEnabled("LArm", False)
+    joint_names_lr = ("RShoulderPitch", "RShoulderRoll", "RElbowYaw", "RElbowRoll", "RWristYaw",
+                      "LShoulderPitch", "LShoulderRoll", "LElbowYaw", "LElbowRoll", "LWristYaw")
     
-    # arm_lr_angles_deg = [45, -0.5, 0, 36, 90, 45, -0.5, 0, -36, -90]
-    # arm_lr_angles_rad = [x * TO_RAD for x in arm_lr_angles_deg]
-    # motion_service.angleInterpolationWithSpeed(joint_names_lr, arm_lr_angles_rad, 0.1)
+    arm_lr_angles_deg = [45, -0.5, 0, 36, 90, 45, -0.5, 0, -36, -90]
+    arm_lr_angles_rad = [x * TO_RAD for x in arm_lr_angles_deg]
+    motion_service.setAngles(joint_names_lr, arm_lr_angles_rad, 0.1)
+    print("Robot has successfully entered task posture.")
 
     # --- Landmark Detection Loop ---
     landmark_found = False
