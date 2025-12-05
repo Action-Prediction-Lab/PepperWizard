@@ -22,6 +22,7 @@ def print_help():
     print("  T    - Enter Talk Mode")
     print("  Bat  - Check Battery Status")
     print("  q    - Quit Joystick Teleoperation")
+    print("  gm   - Gaze at NAOqi marker")
     print("  help - Show this help message")
     print("  exit - Exit PepperWizard application")
 
@@ -30,11 +31,11 @@ def user_input(prompt):
     return input(prompt)
 
 def print_talk_mode_help():
-    """Prints the help message for the unified talk mode."""
+    """Prints the help message for the talk mode."""
     print("--- Talk Mode Help ---")
     print("Speak any sentence directly.")
     print("Trigger animations using:")
-    print("  - Emoticons: Add an emoticon (e.g., :), XD) anywhere in your sentence.")
+    print("  - Emoticons: Add an emoticon (e.g., :), :( )) anywhere in your sentence.")
     print("  - Hotkeys: Add a hotkey (e.g., /N, /Y) anywhere in your sentence.")
     print("Commands:")
     print("  /help - Show this help message")
@@ -42,8 +43,8 @@ def print_talk_mode_help():
     print("---------------------")
 
 def pepper_talk_session(robot_client, config, verbose=False):
-    """Handles an interactive unified Text-to-Speech session with emoticon-triggered animations."""
-    print(" --- Entering Unified PepperTalk --- (type /help for options, /q to exit)")
+    """Handles an interactive Text-to-Speech session with emoticon-triggered animations."""
+    print(" --- Entering PepperTalk --- (type /help for options, /q to exit)")
     while True:
         line = user_input("Pepper: ")
         if line.lower() == '/q':

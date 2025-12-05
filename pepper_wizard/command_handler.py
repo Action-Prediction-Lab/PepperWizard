@@ -1,6 +1,9 @@
+import time
+
 # Manages and dispatches user commands
 from . import cli
 from .teleop import TeleopThread, teleop_running
+from .exp_behaviors.behaviors import gaze_at_marker # Import the new behavior function
 
 class CommandHandler:
     """Handles user commands and dispatches them to the correct functions."""
@@ -11,7 +14,7 @@ class CommandHandler:
         self.teleop_thread = None
         self.tracking_modes = ["Head", "WholeBody", "Move"]
         self.current_mode_index = 0
-        self.social_state_enabled = False
+        self.social_state_enabled = False # This state should ideally be managed by a dedicated social state module or the robot_client
 
     def handle_command(self, command):
         """Handles a single user command."""
@@ -30,6 +33,8 @@ class CommandHandler:
             cli.pepper_talk_session(self.robot_client, self.config, self.verbose)
         elif command == 'bat':
             self.show_battery_status()
+        elif command == 'gm': # Call the gaze_at_marker function from the new behaviors module
+            gaze_at_marker(self.robot_client, marker_id=119, marker_size=0.22, search_timeout=10)
         elif command == 'q':
             self.stop_teleop()
         elif command == 'help':
