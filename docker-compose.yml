@@ -3,7 +3,7 @@ version: '3.8'
 services:
   # The PepperBox environment running the Python 2.7 shim server
   pepper-robot-env:
-    image: pepper-box:01-26-latest
+    image: jwgcurrie/pepper-box:01-26-latest
     privileged: true # For potential hardware access, though less critical now
     network_mode: "host" # Use host networking to easily access Choregraphe on localhost
     volumes:
