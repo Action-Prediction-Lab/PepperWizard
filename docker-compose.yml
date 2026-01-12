@@ -3,16 +3,17 @@ version: '3.8'
 services:
   # The PepperBox environment running the Python 2.7 shim server
   pepper-robot-env:
-    image: jwgcurrie/pepper-direct-env:1.1
+    image: jwgcurrie/pepper-box:01-26-latest
     privileged: true # For potential hardware access, though less critical now
+    network_mode: "host"
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix # For running GUI apps like Choregraphe
-    ports:
-      - "5000:5000" # Expose the naoqi_proxy shim server port
     environment:
       - DISPLAY=${DISPLAY}
       - NVIDIA_DRIVER_CAPABILITIES=all
       - NVIDIA_VISIBLE_DEVICES=all
+      - NAOQI_IP=127.0.0.1
+      - NAOQI_PORT=40873
     # This section enables GPU access if available
     deploy:
       resources:
@@ -39,7 +40,9 @@ services:
   pepper-wizard:
     build: .
     image: pepper-wizard:latest
-    command: [ "python", "-m", "pepper_wizard.main", "--proxy-ip", "127.0.0.1", "--proxy-port", "40299" ]
+    command: [ "python", "-m", "pepper_wizard.main", "--proxy-ip", "host.docker.internal", "--proxy-port", "5000" ]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       - pepper-robot-env
       - dualshock-publisher
