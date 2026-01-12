@@ -9,8 +9,8 @@ services:
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix # For running GUI apps like Choregraphe
     environment:
-      - NAOQI_IP=127.0.0.1
-      - NAOQI_PORT=33447
+      - NAOQI_IP=${NAOQI_IP:-192.168.0.4}
+      - NAOQI_PORT=${NAOQI_PORT:-9559}
       - DISPLAY=${DISPLAY}
       - NVIDIA_DRIVER_CAPABILITIES=all
       - NVIDIA_VISIBLE_DEVICES=all
