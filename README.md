@@ -37,6 +37,8 @@ The `pepper-wizard` application itself is structured as follows:
 *   Docker Compose
 *   A DualShock controller connected to the host machine.
 
+> **Note**: This project depends on the `jwgcurrie/pepper-box` Docker image for the Naoqi bridge. Docker Compose will automatically pull this image from DockerHub.
+
 ### Installation & Running
 
 1.  Clone this repository.
