@@ -10,10 +10,13 @@ COPY requirements.txt .
 # Install base requirements
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the bridge library from the Golden Image (Artifact Strategy)
-# Copy the bridge library from the Golden Image (Artifact Strategy)
-COPY --from=jwgcurrie/pepper-box:01-26-latest /home/pepperdev/py3-naoqi-bridge /app/py3-naoqi-bridge
-ENV PYTHONPATH=/app/py3-naoqi-bridge:$PYTHONPATH
+# Copy and install the naoqi_proxy_client package
+COPY naoqi_proxy_client-0.1.0-py3-none-any.whl .
+RUN pip install naoqi_proxy_client-0.1.0-py3-none-any.whl
+
+# Pre-download model dependencies during build
+COPY pepper_wizard/utils/download_model.py .
+RUN python download_model.py
 
 # Copy the rest of the application's code into the container
 # Define the command to run your app

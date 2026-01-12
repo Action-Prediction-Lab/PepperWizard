@@ -3,14 +3,13 @@ version: '3.8'
 services:
   # The PepperBox environment running the Python 2.7 shim server
   pepper-robot-env:
-    image: jwgcurrie/pepper-box:01-26-latest
+    image: jwgcurrie/pepper-direct-env:1.1
     privileged: true # For potential hardware access, though less critical now
-    network_mode: "host" # Use host networking to easily access Choregraphe on localhost
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix # For running GUI apps like Choregraphe
+    ports:
+      - "5000:5000" # Expose the naoqi_proxy shim server port
     environment:
-      - NAOQI_IP=${NAOQI_IP:-192.168.0.4}
-      - NAOQI_PORT=${NAOQI_PORT:-9559}
       - DISPLAY=${DISPLAY}
       - NVIDIA_DRIVER_CAPABILITIES=all
       - NVIDIA_VISIBLE_DEVICES=all
@@ -40,12 +39,10 @@ services:
   pepper-wizard:
     build: .
     image: pepper-wizard:latest
-    command: [ "python", "-m", "pepper_wizard.main", "--proxy-ip", "host.docker.internal" ]
+    command: [ "python", "-m", "pepper_wizard.main", "--proxy-ip", "127.0.0.1", "--proxy-port", "40299" ]
     depends_on:
       - pepper-robot-env
       - dualshock-publisher
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     # stdin_open and tty are crucial for the interactive command prompt
     stdin_open: true
     tty: true
