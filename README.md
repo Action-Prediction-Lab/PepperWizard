@@ -62,7 +62,6 @@ The connection to the robot (or simulator) is configured via the `robot.env` fil
 2.  Build and run the services using Docker Compose:
 
     ```bash
-    ```bash
     docker compose up -d --build
     ```
     This starts the background services (`pepper-robot-env` and `dualshock-publisher`).
