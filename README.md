@@ -37,16 +37,43 @@ The `pepper-wizard` application itself is structured as follows:
 *   Docker Compose
 *   A DualShock controller connected to the host machine.
 
+### Connection Configuration (Simulated vs Physical)
+
+The connection to the robot (or simulator) is configured via the `robot.env` file. This file interacts with the `pepper-robot-env` service, which acts as a bridge.
+
+1.  **Create or edit `robot.env`** in the root directory:
+    ```bash
+    NAOQI_IP=127.0.0.1
+    NAOQI_PORT=39961
+    ```
+
+2.  **Configuration Scenarios**:
+    *   **Simulated Robot (Choregraphe)**:
+        *   Ensure your simulator is running.
+        *   Set `NAOQI_IP=127.0.0.1`.
+        *   Set `NAOQI_PORT` to your simulator's port (e.g., `39961`).
+    *   **Physical Robot**:
+        *   Set `NAOQI_IP` to the robot's IP address (e.g., `192.168.1.101`).
+        *   Set `NAOQI_PORT=9559` (default NAOqi port).
+
 ### Installation & Running
 
 1.  Clone this repository.
 2.  Build and run the services using Docker Compose:
 
     ```bash
+    ```bash
     docker compose up -d --build
     ```
+    This starts the background services (`pepper-robot-env` and `dualshock-publisher`).
 
-3.  The `pepper-wizard` application will start, and you can interact with it via the terminal.
+3.  **Run the Wizard**:
+    Launch the interactive CLI:
+    ```bash
+    docker compose run --rm -it pepper-wizard
+    ```
+
+
 
 ## Usage
 
