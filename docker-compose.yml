@@ -4,49 +4,45 @@ services:
   # The PepperBox environment running the Python 2.7 shim server
   pepper-robot-env:
     image: jwgcurrie/pepper-direct-env:1.1
-    privileged: true # For potential hardware access, though less critical now
+    privileged: true
     volumes:
-      - /tmp/.X11-unix:/tmp/.X11-unix # For running GUI apps like Choregraphe
-    ports:
-      - "5000:5000" # Expose the naoqi_proxy shim server port
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - ./robot.env:/home/pepperdev/py3-naoqi-bridge/robot.env
+    network_mode: host
     environment:
       - DISPLAY=${DISPLAY}
       - NVIDIA_DRIVER_CAPABILITIES=all
       - NVIDIA_VISIBLE_DEVICES=all
-    # This section enables GPU access if available
+      - NAOQI_IP=127.0.0.1
+      - NAOQI_PORT=39961
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
               count: all
-              capabilities: [gpu]
-    # We run a shell to keep it alive and allow exec-ing into it.
-    # The shim server should be started manually inside the container for now.
-    command: ["/home/pepperdev/.pyenv/versions/2.7.18/bin/python", "/home/pepperdev/py3-naoqi-bridge/shim_server.py"]
+              capabilities: [ gpu ]
+    command: [ "/home/pepperdev/.pyenv/versions/2.7.18/bin/python", "/home/pepperdev/py3-naoqi-bridge/shim_server.py" ]
 
   # The Dualshock publisher service
   dualshock-publisher:
     image: jwgcurrie/dualshock_publisher:latest
-    privileged: true # Needed to access /dev/input devices
+    privileged: true
     volumes:
-      - /dev/input:/dev/input # Mount host's input devices
-    ports:
-      - "5556:5556" # Expose ZeroMQ port
+      - /dev/input:/dev/input
+    network_mode: host
     restart: unless-stopped
 
   # The PepperWizard bridge application
   pepper-wizard:
     build: .
     image: pepper-wizard:latest
-    command: ["python", "-m", "pepper_wizard.main"]
+    command: [ "python", "-m", "pepper_wizard.main", "--proxy-ip", "127.0.0.1", "--proxy-port", "5000" ]
     depends_on:
       - pepper-robot-env
-      - dualshock-publisher
-    # stdin_open and tty are crucial for the interactive command prompt
-    stdin_open: true 
+    stdin_open: true
     tty: true
-    dns: 8.8.8.8
+    network_mode: host
     volumes:
-      - .:/usr/src/app # Mount the host project directory into the container
+      - .:/usr/src/app
     restart: on-failure

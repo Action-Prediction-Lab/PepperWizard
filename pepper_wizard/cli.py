@@ -1,4 +1,5 @@
 # Command-line interface (UI) elements
+from .spell_checker import SpellChecker
 
 def print_title():
     """Prints the application title."""
@@ -45,6 +46,15 @@ def print_talk_mode_help():
 def pepper_talk_session(robot_client, config, verbose=False):
     """Handles an interactive Text-to-Speech session with emoticon-triggered animations."""
     print(" --- Entering PepperTalk --- (type /help for options, /q to exit)")
+
+    # Initialize spell checker
+    try:
+        spell_checker = SpellChecker()
+        print("Spell Checker Initialized.")
+    except Exception as e:
+        print(f"Warning: Could not initialize spell checker: {e}")
+        spell_checker = None
+
     while True:
         line = user_input("Pepper: ")
         if line.lower() == '/q':
@@ -70,6 +80,8 @@ def pepper_talk_session(robot_client, config, verbose=False):
                     print(f"[DEBUG] Found animation tag: '{animation_tag}'")
                 
                 message_to_speak = line.replace(emoticon, '').strip()
+                if spell_checker:
+                    message_to_speak = spell_checker.correct_sentence(message_to_speak)
                 if verbose:
                     print(f"[DEBUG] Message to speak: '{message_to_speak}'")
 
@@ -91,6 +103,8 @@ def pepper_talk_session(robot_client, config, verbose=False):
                     if verbose:
                         print(f"[DEBUG] Found animation tag: '{animation_tag}'")
                     message_to_speak = line.replace(hotkey, '').strip()
+                    if spell_checker:
+                        message_to_speak = spell_checker.correct_sentence(message_to_speak)
                     if verbose:
                         print(f"[DEBUG] Message to speak: '{message_to_speak}'")
                     
@@ -112,4 +126,8 @@ def pepper_talk_session(robot_client, config, verbose=False):
         if line:
             if verbose:
                 print(f"[DEBUG] No emoticon or hotkey found. Calling talk with message: '{line}'")
-            robot_client.talk(line)
+            message_to_speak = line
+            if spell_checker:
+                message_to_speak = spell_checker.correct_sentence(message_to_speak)
+            
+            robot_client.talk(message_to_speak)
