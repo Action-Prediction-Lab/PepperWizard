@@ -37,7 +37,11 @@ The `pepper-wizard` application itself is structured as follows:
 *   Docker Compose
 *   A DualShock controller connected to the host machine.
 
+> **Note**: This project depends on the `jwgcurrie/pepper-box` Docker image for the Naoqi bridge. Docker Compose will automatically pull this image from DockerHub.
+
 ### Connection Configuration (Simulated vs Physical)
+
+> **Note**: This project depends on the `jwgcurrie/pepper-box` Docker image for the Naoqi bridge. Docker Compose will automatically pull this image from DockerHub.
 
 The connection to the robot (or simulator) is configured via the `robot.env` file. This file interacts with the `pepper-robot-env` service, which acts as a bridge.
 

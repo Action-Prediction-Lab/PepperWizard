@@ -3,18 +3,19 @@ version: '3.8'
 services:
   # The PepperBox environment running the Python 2.7 shim server
   pepper-robot-env:
-    image: jwgcurrie/pepper-direct-env:1.1
-    privileged: true
+    image: jwgcurrie/pepper-box:01-26-latest
+    privileged: true # For potential hardware access, though less critical now
+    network_mode: "host"
     volumes:
-      - /tmp/.X11-unix:/tmp/.X11-unix
+      - /tmp/.X11-unix:/tmp/.X11-unix # For running GUI apps like Choregraphe
       - ./robot.env:/home/pepperdev/py3-naoqi-bridge/robot.env
-    network_mode: host
     environment:
       - DISPLAY=${DISPLAY}
       - NVIDIA_DRIVER_CAPABILITIES=all
       - NVIDIA_VISIBLE_DEVICES=all
       - NAOQI_IP=127.0.0.1
       - NAOQI_PORT=39961
+    # This section enables GPU access if available
     deploy:
       resources:
         reservations:
@@ -22,6 +23,8 @@ services:
             - driver: nvidia
               count: all
               capabilities: [ gpu ]
+    # We run a shell to keep it alive and allow exec-ing into it.
+    # The shim server should be started manually inside the container for now.
     command: [ "/home/pepperdev/.pyenv/versions/2.7.18/bin/python", "/home/pepperdev/py3-naoqi-bridge/shim_server.py" ]
 
   # The Dualshock publisher service
@@ -37,9 +40,13 @@ services:
   pepper-wizard:
     build: .
     image: pepper-wizard:latest
-    command: [ "python", "-m", "pepper_wizard.main", "--proxy-ip", "127.0.0.1", "--proxy-port", "5000" ]
+    command: [ "python", "-m", "pepper_wizard.main", "--proxy-ip", "host.docker.internal", "--proxy-port", "5000" ]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       - pepper-robot-env
+      - dualshock-publisher
+    # stdin_open and tty are crucial for the interactive command prompt
     stdin_open: true
     tty: true
     network_mode: host
