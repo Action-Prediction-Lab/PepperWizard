@@ -9,12 +9,12 @@ services:
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix # For running GUI apps like Choregraphe
       - ./robot.env:/home/pepperdev/py3-naoqi-bridge/robot.env
+    env_file:
+      - robot.env
     environment:
       - DISPLAY=${DISPLAY}
       - NVIDIA_DRIVER_CAPABILITIES=all
       - NVIDIA_VISIBLE_DEVICES=all
-      - NAOQI_IP=127.0.0.1
-      - NAOQI_PORT=39961
     # This section enables GPU access if available
     deploy:
       resources:
