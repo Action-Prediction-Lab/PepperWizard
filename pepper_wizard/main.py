@@ -29,18 +29,15 @@ def main():
         sys.exit(1)
 
     print(" --- PepperWizard Ready ---")
-    cli.print_help()
 
     command_handler = CommandHandler(robot_client, config, verbose=args.verbose)
-    session = PromptSession()
 
     try:
         while True:
-            command = cli.user_input(session, "Enter Command: ")
-            if command is None: # Handle EOF
-                break
-
-            if command.lower() == 'exit':
+            # command = cli.user_input(session, "Enter Command: ")
+            command = cli.show_main_menu()
+            
+            if command is None or command == 'exit': # Handle Cancel or Exit
                 print("Shutting down PepperWizard...")
                 break
             

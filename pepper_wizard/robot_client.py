@@ -65,13 +65,20 @@ class RobotClient:
             print(f"Could not get battery status: {e}")
             return None
 
+    def set_tracking_mode(self, mode_name):
+        """Sets the robot's tracking mode directly."""
+        print(f"Setting tracking mode to: {mode_name}")
+        try:
+            self.client.ALTracker.setMode(mode_name)
+            self.client.ALTracker.setMode(mode_name) # Send command twice for robustnes
+        except NaoqiProxyError as e:
+            print(f"Failed to set tracking mode: {e}")
+
     def toggle_tracking_mode(self, current_mode_index, tracking_modes):
         """Toggles the robot's tracking mode."""
         new_mode_index = (current_mode_index + 1) % len(tracking_modes)
         new_mode = tracking_modes[new_mode_index]
-        print(f"Setting tracking mode to: {new_mode}")
-        self.client.ALTracker.setMode(new_mode)
-        self.client.ALTracker.setMode(new_mode) # Send command twice
+        self.set_tracking_mode(new_mode)
         return new_mode_index
 
     def toggle_social_state(self, social_state_enabled):

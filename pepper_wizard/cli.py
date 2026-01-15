@@ -6,6 +6,84 @@ from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.styles import Style
 
 from prompt_toolkit.completion import Completer, Completion
+from prompt_toolkit.application import Application
+from prompt_toolkit.layout.containers import Window
+from prompt_toolkit.layout.controls import FormattedTextControl
+from prompt_toolkit.layout.layout import Layout
+from prompt_toolkit.key_binding import KeyBindings
+from prompt_toolkit.formatted_text import HTML
+
+class InteractiveMenu:
+    def __init__(self, title, options):
+        self.title = title
+        self.options = options # List of (key, label)
+        self.selected_index = 0
+
+    def get_text(self):
+        text = [f"<b>{self.title}</b>\n"]
+        for i, (key, label) in enumerate(self.options):
+            if i == self.selected_index:
+                text.append(f" <ansicyan>&gt; {label}</ansicyan>\n")
+            else:
+                text.append(f"   {label}\n")
+        return HTML("".join(text))
+
+    def run(self):
+        bindings = KeyBindings()
+
+        @bindings.add('up')
+        def _(event):
+            self.selected_index = (self.selected_index - 1) % len(self.options)
+
+        @bindings.add('down')
+        def _(event):
+            self.selected_index = (self.selected_index + 1) % len(self.options)
+
+        @bindings.add('enter')
+        def _(event):
+            event.app.exit(result=self.options[self.selected_index][0])
+
+        @bindings.add('c-c')
+        def _(event):
+            event.app.exit(result="exit")
+
+        app = Application(
+            layout=Layout(Window(content=FormattedTextControl(text=self.get_text))),
+            key_bindings=bindings,
+            mouse_support=False,
+            full_screen=False 
+        )
+        return app.run()
+
+def show_main_menu():
+    """Displays the main menu using a custom text selection."""
+    menu = InteractiveMenu(
+        title="Select Action:",
+        options=[
+            ("t", "Unified Talk Mode"),
+            ("j", "Joystick Teleop"),
+            ("a", "Toggle Social State"),
+            ("s", "Set Tracking Mode"),
+            ("w", "Wake Up Robot"),
+            ("r", "Rest Robot"),
+            ("gm", "Gaze at Marker"),
+            ("bat", "Check Battery"),
+            ("exit", "Exit Application")
+        ]
+    )
+    return menu.run()
+
+def select_tracking_mode(current_mode):
+    """Inline menu for tracking mode."""
+    menu = InteractiveMenu(
+        title=f"Select Tracking Mode (Current: {current_mode}):",
+        options=[
+            ("Head", "Head Tracking"),
+            ("WholeBody", "Whole Body Tracking"),
+            ("Move", "Move Tracking")
+        ]
+    )
+    return menu.run()
 
 class SlashCompleter(Completer):
     """
