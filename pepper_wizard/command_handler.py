@@ -26,7 +26,13 @@ class CommandHandler:
         elif command == 'r':
             self.robot_client.rest()
         elif command == 's':
-            self.current_mode_index = self.robot_client.toggle_tracking_mode(self.current_mode_index, self.tracking_modes)
+            # self.current_mode_index = self.robot_client.toggle_tracking_mode(self.current_mode_index, self.tracking_modes)
+            current_mode_name = self.tracking_modes[self.current_mode_index]
+            new_mode = cli.select_tracking_mode(current_mode_name)
+            if new_mode:
+                self.robot_client.set_tracking_mode(new_mode)
+                if new_mode in self.tracking_modes:
+                    self.current_mode_index = self.tracking_modes.index(new_mode)
         elif command == 'a':
             self.social_state_enabled = self.robot_client.toggle_social_state(self.social_state_enabled)
         elif command == 't':
