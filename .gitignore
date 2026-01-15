@@ -13,3 +13,15 @@ TODO.txt
 # Environment and Venv
 .venv_test/
 robot.env
+
+# Python Packaging
+build/
+dist/
+*.egg-info/
+*.whl
+*.tar.gz
+
+# IDEs
+.idea/
+.vscode/
+*.swp
