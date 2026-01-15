@@ -41,7 +41,7 @@ The `pepper-wizard` application itself is structured as follows:
 
 ### Connection Configuration (Simulated vs Physical)
 
-> **Note**: This project depends on the `jwgcurrie/pepper-box` Docker image for the Naoqi bridge. Docker Compose will automatically pull this image from DockerHub.
+
 
 The connection to the robot (or simulator) is configured via the `robot.env` file. This file interacts with the `pepper-robot-env` service, which acts as a bridge.
 
@@ -98,9 +98,26 @@ Once the application is running, you can enter commands into the terminal.
 
 When in Unified Talk Mode, you can speak sentences and trigger animations:
 
-*   **Plain Speech:** Enter any text, and the robot will speak it without animation.
-*   **Emoticon-Triggered Animation:** Include a recognized emoticon (e.g., `:)`, `XD`) anywhere in your sentence. The robot will speak the message (with the emoticon removed) and play the corresponding animation concurrently. Available emoticons are defined in `emoticon_map.json`.
-*   **Hotkey-Triggered Blocking Animation:** Include a hotkey (e.g., `/N`, `/Y`) anywhere in your sentence. The robot will speak the message (with the hotkey removed) and then play the corresponding animation for its full duration. Hotkeys are defined in `quick_responses.json`.
+
+### Advanced Features
+
+#### 1. Proactive Spellcheck & Confirmation
+As you type, the system checks your grammar. If a correction is found:
+*   **Interactive UI**: You will see a prompt like `Pepper (Suggestion) [tag]:`.
+*   **Tab-Toggle**: Press `[Tab]` to switch between the **Suggestion** (Cyan) and your **Raw Input** (White).
+*   **Confirm**: Press `[Enter]` to confirm the selected text.
+
+#### 2. Slash-Autocomplete
+Type `/` at any time to see a menu of available commands and animations.
+*   **Context Aware**: Works at the start of a line or mid-sentence (e.g., `Hello /`).
+*   **Tags**: Includes full animation tags (e.g., `/happy`, `/bow`).
+*   **Safety**: Only triggers when you explicitly type `/`, preventing accidental activations.
+
+#### 3. Available Inputs
+*   **Plain Speech:** Enter any text.
+*   **Emoticon-Triggered Animation:** Include a recognized emoticon (e.g., `:)`, `XD`).
+*   **Hotkey-Triggered Blocking Animation:** Include a hotkey (e.g., `/N`, `/Y`).
+*   **Tag-Triggered Animation:** Use the autocomplete menu to select a tag (e.g., `/happy`).
 
 *   `/help` - Show contextual help for the talk mode.
 *   `/q`    - Quit talk mode and return to the main menu.
