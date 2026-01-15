@@ -1,4 +1,50 @@
 # Command-line interface (UI) elements
+from .spell_checker import SpellChecker
+from prompt_toolkit import PromptSession, print_formatted_text
+from prompt_toolkit.key_binding import KeyBindings
+from prompt_toolkit.formatted_text import HTML
+from prompt_toolkit.styles import Style
+
+from prompt_toolkit.completion import Completer, Completion
+
+class SlashCompleter(Completer):
+    """
+    Custom completer that provides suggestions only when triggered by a slash '/'.
+    It completes the word immediately following the slash.
+    """
+    def __init__(self, words, ignore_case=False):
+        self.words = sorted(list(set(words)))
+        self.ignore_case = ignore_case
+
+    def get_completions(self, document, complete_event):
+        text_before_cursor = document.text_before_cursor
+        
+        # We only care if there is a slash
+        if '/' not in text_before_cursor:
+            return
+
+        # Get text after the LAST slash
+        # e.g. "Hello /hap" -> "hap"
+        # e.g. "Hello /" -> ""
+        current_word = text_before_cursor.split('/')[-1]
+
+        # If the current "word" contains spaces, it means we are past the slash token
+        # e.g. "Hello /happy " -> current_word is "happy ". 
+        # We stop completing.
+        if ' ' in current_word:
+            return
+            
+        search_prefix = "/" + current_word
+        if self.ignore_case:
+            search_prefix = search_prefix.lower()
+
+        for word in self.words:
+            check_word = word.lower() if self.ignore_case else word
+            if check_word.startswith(search_prefix):
+                # Yield completion
+                # We want to replace everything including the slash
+                # "Hello /hap" -> replace "/hap" (4 chars) with "/happy"
+                yield Completion(word, start_position=-(len(current_word) + 1))
 
 def print_title():
     """Prints the application title."""
@@ -26,9 +72,12 @@ def print_help():
     print("  help - Show this help message")
     print("  exit - Exit PepperWizard application")
 
-def user_input(prompt):
-    """Gets input from the user."""
-    return input(prompt)
+def user_input(session, prompt_text="Pepper: "):
+    """Gets input from the user using prompt_toolkit session."""
+    try:
+        return session.prompt(prompt_text)
+    except (EOFError, KeyboardInterrupt):
+        return None
 
 def print_talk_mode_help():
     """Prints the help message for the talk mode."""
@@ -42,11 +91,100 @@ def print_talk_mode_help():
     print("  /q    - Quit talk mode")
     print("---------------------")
 
+def confirm_correction(session, suggestion, original, tag=None):
+    """
+    Presents a Tab-Toggle interface to choose between suggestion and original text.
+    """
+    bindings = KeyBindings()
+    
+    # State validation: [is_showing_suggestion]
+    state = [True]
+
+    @bindings.add('tab')
+    def _(event):
+        state[0] = not state[0]
+        buff = event.app.current_buffer
+        # Swap text
+        buff.text = suggestion if state[0] else original
+        # Move cursor to end
+        buff.cursor_position = len(buff.text)
+
+    def get_prompt_message():
+        tag_disp = f" <ansimagenta>[{tag}]</ansimagenta>" if tag else ""
+        if state[0]:
+            return HTML(f"<b><ansicyan>Pepper (Suggestion){tag_disp}:</ansicyan></b> ")
+        else:
+            return HTML(f"<b><ansiwhite>Pepper (Raw){tag_disp}:</ansiwhite></b> ")
+
+    def get_bottom_toolbar():
+        if state[0]:
+            return HTML(" <b>[Tab]</b> Revert to Raw  <b>[Enter]</b> Confirm Suggestion")
+        else:
+            return HTML(" <b>[Tab]</b> Apply Suggestion  <b>[Enter]</b> Confirm Raw Input")
+
+    
+    result = session.prompt(
+        get_prompt_message,
+        default=suggestion,
+        key_bindings=bindings,
+        bottom_toolbar=get_bottom_toolbar
+    )
+    return result
+
+def get_verified_text(session, spell_checker, text, tag=None):
+    """Checks spelling and runs confirmation loop if needed."""
+    if not text.strip() or not spell_checker:
+        return text
+    
+    try:
+        corrected = spell_checker.correct_sentence(text)
+    except Exception as e:
+        print(f"Spellcheck error: {e}")
+        return text
+
+    # Basic cleanup normalization for comparison
+    if corrected.strip() == text.strip():
+        return text
+
+    # They differ, run confirmation
+    return confirm_correction(session, corrected, text, tag=tag)
+
+
 def pepper_talk_session(robot_client, config, verbose=False):
     """Handles an interactive Text-to-Speech session with emoticon-triggered animations."""
     print(" --- Entering PepperTalk --- (type /help for options, /q to exit)")
+
+    # Initialize spell checker
+    try:
+        spell_checker = SpellChecker()
+        print("Spell Checker Initialized.")
+    except Exception as e:
+        print(f"Warning: Could not initialize spell checker: {e}")
+        spell_checker = None
+
+    # Initialize PromptSession
+    # --- Autocomplete Setup ---
+    completer_words = []
+    # 1. Commands
+    completer_words.extend(['/help', '/q'])
+    # 2. Hotkeys (already have /)
+    completer_words.extend([f"/{k}" for k in config.quick_responses.keys()])
+    # 3. Emoticons (ADD slash only)
+    completer_words.extend([f"/{k}" for k in config.emoticon_map.keys()])
+    # 4. Tags (Animation names) - Add slash only
+    unique_tags = set(config.emoticon_map.values())
+    completer_words.extend([f"/{t}" for t in unique_tags])
+
+    completer = SlashCompleter(completer_words, ignore_case=True)
+
+    # Initialize PromptSession with completer
+    session = PromptSession(completer=completer, complete_while_typing=True)
+
     while True:
-        line = user_input("Pepper: ")
+        line = user_input(session, "Pepper: ")
+        if line is None: # Handle Ctrl+C/D
+            break
+
         if line.lower() == '/q':
             break
         if line.lower() == '/help':
@@ -60,56 +198,90 @@ def pepper_talk_session(robot_client, config, verbose=False):
         found_hotkey = False
 
         # 1. Check for emoticons (non-blocking animation)
+        # Handle both raw :) and autocomplete /:)
         sorted_emoticons = sorted(config.emoticon_map.keys(), key=len, reverse=True)
         for emoticon in sorted_emoticons:
-            if emoticon in line:
-                if verbose:
-                    print(f"[DEBUG] Found emoticon: '{emoticon}'")
-                animation_tag = config.emoticon_map[emoticon]
-                if verbose:
-                    print(f"[DEBUG] Found animation tag: '{animation_tag}'")
-                
-                message_to_speak = line.replace(emoticon, '').strip()
-                if verbose:
-                    print(f"[DEBUG] Message to speak: '{message_to_speak}'")
+            target_emoticon = emoticon
+            
+            # Check if it exists with or without slash
+            if f"/{emoticon}" in line:
+                 # Remove the slashed version
+                 message_part = line.replace(f"/{emoticon}", '').strip()
+            elif emoticon in line:
+                 message_part = line.replace(emoticon, '').strip()
+            else:
+                continue
 
+            # Found!
+            animation_tag = config.emoticon_map[emoticon]
+            message_to_speak = get_verified_text(session, spell_checker, message_part, tag=animation_tag)
+
+            if message_to_speak:
                 robot_client.animated_talk(animation_tag, message_to_speak)
-                found_emoticon = True
-                break
+                # Feedback to user
+                print_formatted_text(HTML(f"<ansiyellow>[Pepper] Said:</ansiyellow> \"{message_to_speak} [{animation_tag}]\""))
+            elif message_part == "" and not message_to_speak:
+                 # Just animation
+                 robot_client.play_animation_blocking(animation_tag)
+                 print_formatted_text(HTML(f"<ansiyellow>[Pepper] Said:</ansiyellow> \"[{animation_tag}]\""))
+            
+            found_emoticon = True
+            break
         
         if found_emoticon:
+            continue
+            
+        # 1b. Check for Tags (Animation Names) - STRICTLY SLASH PREFIXED
+        # e.g. /happy -> play 'happy' animation
+        sorted_tags = sorted(unique_tags, key=len, reverse=True)
+        found_tag = False
+        for tag in sorted_tags:
+            slash_tag = f"/{tag}"
+            if slash_tag in line:
+                 # Remove the tag
+                 message_part = line.replace(slash_tag, '').strip()
+                 animation_tag = tag 
+                 
+                 message_to_speak = get_verified_text(session, spell_checker, message_part, tag=animation_tag)
+
+                 if message_to_speak:
+                    robot_client.animated_talk(animation_tag, message_to_speak)
+                    print_formatted_text(HTML(f"<ansiyellow>[Pepper] Said:</ansiyellow> \"{message_to_speak} [{animation_tag}]\""))
+                 elif message_part == "" and not message_to_speak:
+                    robot_client.play_animation_blocking(animation_tag)
+                    print_formatted_text(HTML(f"<ansiyellow>[Pepper] Said:</ansiyellow> \"[{animation_tag}]\""))
+                 
+                 found_tag = True
+                 break
+        
+        if found_tag:
             continue
 
         # 2. If no emoticon, check for quick response hotkeys (blocking animation)
         for key, response_data in config.quick_responses.items():
             hotkey = f"/{key}"
             if hotkey in line:
-                if verbose:
-                    print(f"[DEBUG] Found hotkey: '{hotkey}'")
                 animation_tag = response_data.get('animation')
                 if animation_tag:
-                    if verbose:
-                        print(f"[DEBUG] Found animation tag: '{animation_tag}'")
-                    message_to_speak = line.replace(hotkey, '').strip()
-                    if verbose:
-                        print(f"[DEBUG] Message to speak: '{message_to_speak}'")
+                    message_part = line.replace(hotkey, '').strip()
+                    message_to_speak = get_verified_text(session, spell_checker, message_part, tag=animation_tag)
                     
-                    # Speak first, then play animation
                     if message_to_speak:
+                        # Speak first, then play animation
                         robot_client.talk(message_to_speak)
-                    robot_client.play_animation_blocking(animation_tag)
+                        robot_client.play_animation_blocking(animation_tag)
+                        print_formatted_text(HTML(f"<ansiyellow>[Pepper] Said:</ansiyellow> \"{message_to_speak} [{animation_tag}]\""))
 
                     found_hotkey = True
                     break
-                else:
-                    if verbose:
-                        print(f"[DEBUG] Hotkey '{hotkey}' found, but no animation defined for it.")
 
         if found_hotkey:
             continue
 
         # 3. If nothing else, perform regular talk
         if line:
-            if verbose:
-                print(f"[DEBUG] No emoticon or hotkey found. Calling talk with message: '{line}'")
-            robot_client.talk(line)
+            message_to_speak = get_verified_text(session, spell_checker, line)
+            
+            if message_to_speak:
+                robot_client.talk(message_to_speak)
+                print_formatted_text(HTML(f"<ansiyellow>[Pepper] Said:</ansiyellow> \"{message_to_speak}\""))

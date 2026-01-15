@@ -19,6 +19,10 @@ RUN pip install /usr/src/PepperBox/py3-naoqi-bridge
 
 
 
+# Pre-download the NLP model validation during build
+COPY pepper_wizard/utils/download_model.py .
+RUN python download_model.py
+
 # Copy the rest of the application's code into the container
 # Define the command to run your app
 CMD ["python", "-m", "pepper_wizard.main"]

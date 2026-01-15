@@ -8,12 +8,13 @@ services:
     network_mode: "host"
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix # For running GUI apps like Choregraphe
+      - ./robot.env:/home/pepperdev/py3-naoqi-bridge/robot.env
+    env_file:
+      - robot.env
     environment:
       - DISPLAY=${DISPLAY}
       - NVIDIA_DRIVER_CAPABILITIES=all
       - NVIDIA_VISIBLE_DEVICES=all
-      - NAOQI_IP=127.0.0.1
-      - NAOQI_PORT=40873
     # This section enables GPU access if available
     deploy:
       resources:
@@ -29,11 +30,10 @@ services:
   # The Dualshock publisher service
   dualshock-publisher:
     image: jwgcurrie/dualshock_publisher:latest
-    privileged: true # Needed to access /dev/input devices
+    privileged: true
     volumes:
-      - /dev/input:/dev/input # Mount host's input devices
-    ports:
-      - "5556:5556" # Expose ZeroMQ port
+      - /dev/input:/dev/input
+    network_mode: host
     restart: unless-stopped
 
   # The PepperWizard bridge application
@@ -49,7 +49,7 @@ services:
     # stdin_open and tty are crucial for the interactive command prompt
     stdin_open: true
     tty: true
-    dns: 8.8.8.8
+    network_mode: host
     volumes:
-      - .:/usr/src/app # Mount the host project directory into the container
+      - .:/usr/src/app
     restart: on-failure

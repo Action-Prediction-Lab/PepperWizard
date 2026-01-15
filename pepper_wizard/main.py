@@ -6,6 +6,8 @@ from .config import load_config
 from .robot_client import RobotClient
 from .command_handler import CommandHandler
 
+from prompt_toolkit import PromptSession
+
 def main():
     """Main function to run the PepperWizard application."""
     parser = argparse.ArgumentParser()
@@ -30,11 +32,14 @@ def main():
     cli.print_help()
 
     command_handler = CommandHandler(robot_client, config, verbose=args.verbose)
+    session = PromptSession()
 
     try:
         while True:
-            command = cli.user_input("Enter Command: ")
-            
+            command = cli.user_input(session, "Enter Command: ")
+            if command is None: # Handle EOF
+                break
+
             if command.lower() == 'exit':
                 print("Shutting down PepperWizard...")
                 break
