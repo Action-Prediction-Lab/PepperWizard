@@ -1,6 +1,7 @@
 flask
 requests
 pyzmq
+prompt_toolkit
 numpy
 transformers
 torch --extra-index-url https://download.pytorch.org/whl/cpu
