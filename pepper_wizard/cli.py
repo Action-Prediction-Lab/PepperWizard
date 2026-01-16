@@ -134,7 +134,6 @@ def print_title():
     print("                 |__|   |__|                      \/           \/     \/           \/ ")
     print("---------------------------------------------------------------------------------------")
     print(" - jwgcurrie")
-    print(" - V 2.0")
 
 def print_help():
     """Prints the help message."""
