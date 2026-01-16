@@ -82,19 +82,25 @@ The connection to the robot (or simulator) is configured via the `robot.env` fil
 
 Once the application is running, you can enter commands into the terminal.
 
-### Main Menu Commands
+The application uses an interactive selection menu.
 
-*   `A`    - Toggle Autonomous/Social State
-*   `J`    - Start Joystick Teleoperation
-*   `W`    - Wake Up Robot
-*   `R`    - Put Robot to Rest
-*   `T`    - Enter Unified Talk Mode
-*   `Bat`  - Check Robot Battery Status
-*   `q`    - Quit Joystick Teleoperation
-*   `help` - Show this help message
-*   `exit` - Exit the PepperWizard application
+*   **Arrow Keys** (`↑` / `↓`): Navigate selection.
+*   **Enter**: Confirm selection.
 
-### Unified Talk Mode (`T` command)
+```text
+Select Action:
+ > Unified Talk Mode
+   Joystick Teleop
+   Toggle Social State
+   Set Tracking Mode
+   Wake Up Robot
+   Rest Robot
+   Gaze at Marker
+   Check Battery
+   Exit Application
+```
+
+### Unified Talk Mode
 
 When in Unified Talk Mode, you can speak sentences and trigger animations:
 
