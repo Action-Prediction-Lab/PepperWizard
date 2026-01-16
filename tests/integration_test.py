@@ -11,7 +11,7 @@ from pepper_wizard.logger import setup_logging, get_logger
 from pepper_wizard.robot_client import RobotClient
 
 def verify_full_stack_logging():
-    log_file = "integration_test_log.jsonl"
+    log_file = "logs/integration_test_log.jsonl"
     
     # 1. Setup Logging
     print(f"--- Setting up logging to {log_file} ---")

@@ -27,5 +27,4 @@ dist/
 *.swp
 
 # Logs
-*.jsonl
-*.log
+logs/

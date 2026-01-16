@@ -22,11 +22,13 @@ class JSONFormatter(logging.Formatter):
         
         return json.dumps(log_record)
 
-def setup_logging(log_file="experiment_log.jsonl", verbose=False):
+def setup_logging(log_file="logs/experiment_log.jsonl", verbose=False):
     """
     Configures the root logger to write to JSONL file and console.
     """
     root_logger = logging.getLogger()
+    # If verbose, capture DEBUG+. If not, still capture INFO+ for FILE, but filter for CONSOLE.
+    # We set root to DEBUG if verbose, INFO otherwise.
     root_logger.setLevel(logging.INFO if not verbose else logging.DEBUG)
     
     # clear existing handlers to avoid duplicates if re-initialized
@@ -39,6 +41,8 @@ def setup_logging(log_file="experiment_log.jsonl", verbose=False):
         
     file_handler = logging.FileHandler(log_file)
     file_handler.setFormatter(JSONFormatter())
+    # File always gets at least INFO, or DEBUG if verbose
+    file_handler.setLevel(logging.INFO if not verbose else logging.DEBUG)
     root_logger.addHandler(file_handler)
 
     # 2. Console Handler (Human Readable)
@@ -48,9 +52,11 @@ def setup_logging(log_file="experiment_log.jsonl", verbose=False):
         '[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s'
     )
     console_handler.setFormatter(console_format)
-    # Only show INFO+ on console unless verbose is strictly requested
-    # But root level controls what gets passed.
-    console_handler.setLevel(logging.INFO if not verbose else logging.DEBUG)
+    
+    # User Request: "if the flag is not present the logs are not visable on the console"
+    # So if verbose=False, we only show WARNING/ERROR. If verbose=True, we show everything.
+    console_handler.setLevel(logging.WARNING if not verbose else logging.DEBUG)
+    
     root_logger.addHandler(console_handler)
 
     logging.info("LoggingInitialized", {"log_file": log_file})
