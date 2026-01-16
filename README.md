@@ -4,7 +4,7 @@ PepperWizard is a Python-based application for teleoperating the Pepper robot. I
 
 ## Features
 
-*   **Modern Bridge Architecture:** Integrates with [PepperBox](https://github.com/Action-Prediction-Lab/PepperBox) to wrap the legacy Python 2.7 / NAOqi SDK in a Docker container, allowing you to write modern Python 3 code.
+*   **Modern Bridge Architecture:** Integrates with `PepperBox` to wrap the legacy Python 2.7 / NAOqi SDK in a Docker container, allowing you to write modern Python 3 code.
 *   **Fully Dockerised:** Zero-configuration setup suitable for rapid deployment and reproducibility in HRI labs.
 *   **Joystick Teleoperation:** Control the robot's movement in real-time using a DualShock controller via [Dualshock-ZMQ](https://github.com/Action-Prediction-Lab/Dualshock-ZMQ).
 *   **Intelligent Talk Mode:** A unified interface for speech and animation, featuring **slash-command autocomplete**, **spellcheck**, and **emoticon animation triggers**.
@@ -38,7 +38,7 @@ The `pepper-wizard` application itself is structured as follows:
 *   Docker Compose
 *   A DualShock controller connected to the host machine.
 
-> **Note**: This project depends on the `jwgcurrie/pepper-box` Docker image for the Naoqi bridge. Docker Compose will automatically pull this image from DockerHub.
+> **Note**: This project depends on the `jwgcurrie/pepper-box` Docker image for the Naoqi bridge. Docker Compose will automatically pull this publicly available image. The source code for the bridge environment will be released separately.
 
 ### Connection Configuration (Simulated vs Physical)
 
