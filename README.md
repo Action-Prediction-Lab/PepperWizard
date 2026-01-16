@@ -40,6 +40,8 @@ The `pepper-wizard` application itself is structured as follows:
 *   Docker Compose
 *   A DualShock controller connected to the host machine.
 
+> **OS Compatibility**: This project currently requires **Linux**. It utilises `network_mode: host` and direct device access (`/dev/input`) for the controller, which are not natively supported by Docker Desktop on Windows or macOS.
+
 > **Note**: This project depends on the `jwgcurrie/pepper-box` Docker image for the Naoqi bridge. Docker Compose will automatically pull this publicly available image. The source code for the bridge environment will be released separately.
 
 ### Connection Configuration (Simulated vs Physical)
