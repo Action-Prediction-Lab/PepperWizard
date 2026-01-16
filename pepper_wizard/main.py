@@ -19,13 +19,20 @@ def main():
                         help="Enable verbose debug output.")
     args = parser.parse_args()
 
+    # Initialise Logging
+    from .logger import setup_logging, get_logger
+    setup_logging(verbose=args.verbose)
+    logger = get_logger("Main")
+
     cli.print_title()
+    logger.info("ApplicationStarted", {"proxy_ip": args.proxy_ip, "proxy_port": args.proxy_port})
 
     config = load_config()
 
     try:
         robot_client = RobotClient(host=args.proxy_ip, port=args.proxy_port, verbose=args.verbose)
-    except Exception:
+    except Exception as e:
+        logger.error("RobotConnectionFailed", {"error": str(e)})
         sys.exit(1)
 
     print(" --- PepperWizard Ready ---")
@@ -39,12 +46,14 @@ def main():
             
             if command is None or command == 'exit': # Handle Cancel or Exit
                 print("Shutting down PepperWizard...")
+                logger.info("ApplicationShutdown", {"reason": "UserExit"})
                 break
             
             command_handler.handle_command(command)
             
     except KeyboardInterrupt:
         print("\nCaught KeyboardInterrupt. Shutting down...")
+        logger.info("ApplicationShutdown", {"reason": "KeyboardInterrupt"})
     finally:
         command_handler.cleanup()
     

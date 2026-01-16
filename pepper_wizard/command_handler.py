@@ -1,6 +1,6 @@
 import time
 
-# Manages and dispatches user commands
+# Manages and dispatches operator commands
 from . import cli
 from .teleop import TeleopThread, teleop_running
 from .exp_behaviors.behaviors import gaze_at_marker # Import the new behavior function
@@ -15,9 +15,13 @@ class CommandHandler:
         self.tracking_modes = ["Head", "WholeBody", "Move"]
         self.current_mode_index = 0
         self.social_state_enabled = False # This state should ideally be managed by a dedicated social state module or the robot_client
+        
+        from .logger import get_logger
+        self.logger = get_logger("CommandHandler")
 
     def handle_command(self, command):
         """Handles a single user command."""
+        self.logger.info("CommandReceived", {"command": command})
         command = command.lower()
         if command == 'j':
             self.start_teleop()
