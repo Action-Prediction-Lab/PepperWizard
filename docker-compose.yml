@@ -40,6 +40,9 @@ services:
   pepper-wizard:
     build: .
     image: pepper-wizard:latest
+    environment:
+      - HF_HUB_OFFLINE=1
+      - TRANSFORMERS_OFFLINE=1
     command: [ "python", "-m", "pepper_wizard.main", "--proxy-ip", "host.docker.internal", "--proxy-port", "5000" ]
     extra_hosts:
       - "host.docker.internal:host-gateway"

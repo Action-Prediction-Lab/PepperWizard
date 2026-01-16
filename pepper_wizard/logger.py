@@ -79,6 +79,12 @@ def setup_logging(session_id=None, log_file=None, verbose=False):
     
     root_logger.addHandler(console_handler)
 
+    # 3. Silence Noisy Third-Party Libraries
+    # These libraries are very chatty even at INFO level, especially during model loading
+    logging.getLogger("urllib3").setLevel(logging.ERROR)
+    logging.getLogger("transformers").setLevel(logging.ERROR)
+    logging.getLogger("huggingface_hub").setLevel(logging.ERROR)
+
     logging.info("LoggingInitialized", {"log_file": log_file})
 
 def get_logger(name):
