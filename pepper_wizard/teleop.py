@@ -11,6 +11,9 @@ class TeleopThread(threading.Thread):
     """Thread for handling robot teleoperation."""
     def __init__(self, robot_client, verbose=False):
         super(TeleopThread, self).__init__()
+        from .logger import get_logger
+        self.logger = get_logger("TeleopThread")
+        
         self.robot_client = robot_client
         self.verbose = verbose
         self.context = zmq.Context()
@@ -29,10 +32,12 @@ class TeleopThread(threading.Thread):
         if self.verbose:
             print("[TeleopThread.run()] Starting thread execution.")
         print(" --- Teleoperation Thread Started ---")
+        self.logger.info("TeleopStarted")
         print(" --- Press 'q' in the main terminal and Enter to stop ---")
         
         # Set stiffness for movement
         self.robot_client.set_stiffnesses("Body", 1.0)
+        self.logger.info("StiffnessSet", {"body_part": "Body", "value": 1.0})
 
         while not teleop_running.is_set():
             if self.verbose:
@@ -54,13 +59,16 @@ class TeleopThread(threading.Thread):
                 self.handle_controller_input(message)
             except zmq.ZMQError as e:
                 print(f"ZMQ Error in TeleopThread: {e}")
+                self.logger.error("ZMQError", {"error": str(e)})
                 break
             except NaoqiProxyError as e:
                 print(f"NAOqi Proxy Error in TeleopThread: {e}")
+                self.logger.error("ProxyError", {"error": str(e)})
                 break
         
         print("Stopping robot movement...")
         self.robot_client.stop_move()
+        self.logger.info("TeleopStopped")
         print(" --- Teleoperation Thread Finished ---")
 
     def handle_controller_input(self, message):

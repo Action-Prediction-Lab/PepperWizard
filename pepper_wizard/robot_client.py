@@ -4,7 +4,14 @@ from naoqi_proxy import NaoqiClient, NaoqiProxyError
 class RobotClient:
     """A wrapper around the NaoqiClient to provide a high-level API for controlling the robot."""
     def __init__(self, host, port, verbose=False):
+        from .logger import get_logger
+        self.logger = get_logger("RobotClient")
+        
         self.verbose = verbose
+        
+        # Throttling for high-frequency logs
+        self.last_move_log_time = 0
+        self.move_log_interval = 0.5 # Log max every 0.5 seconds (2Hz)
         try:
             self.client = NaoqiClient(host=host, port=port)
             # Ping a service to ensure connection
@@ -19,12 +26,14 @@ class RobotClient:
     def wake_up(self):
         """Wakes up the robot."""
         print("Waking up robot...")
+        self.logger.info("WakeUp")
         self.client.ALMotion.wakeUp()
         print("Robot is awake.")
 
     def rest(self):
         """Puts the robot to rest."""
         print("Putting robot to rest...")
+        self.logger.info("Rest")
         self.client.ALMotion.rest()
         print("Robot is at rest.")
 
@@ -33,6 +42,7 @@ class RobotClient:
         try:
             if self.verbose:
                 print(f"[DEBUG] RobotClient.talk: '{message}'")
+            self.logger.info("Speech", {"text": message, "type": "plain"})
             self.client.ALTextToSpeech.say(message)
         except NaoqiProxyError as e:
             print(f"TTS Error: {e}")
@@ -43,6 +53,7 @@ class RobotClient:
             say_string = f"^startTag({animation_tag}) {message} ^stopTag({animation_tag})"
             if self.verbose:
                 print(f"[DEBUG] RobotClient.animated_talk: '{say_string}'")
+            self.logger.info("Speech", {"text": message, "type": "animated", "animation": animation_tag})
             self.client.ALAnimatedSpeech.say(say_string)
         except NaoqiProxyError as e:
             print(f"TTS Error: {e}")
@@ -53,6 +64,7 @@ class RobotClient:
             if self.verbose:
                 print(f"[DEBUG] RobotClient.play_animation_blocking with tag: '{animation_name}'")
             # runTag is blocking by default
+            self.logger.info("AnimationStarted", {"animation": animation_name})
             self.client.ALAnimationPlayer.runTag(animation_name)
         except NaoqiProxyError as e:
             print(f"Animation Error: {e}")
@@ -60,7 +72,9 @@ class RobotClient:
     def get_battery_charge(self):
         """Returns the robot's battery charge percentage."""
         try:
-            return self.client.ALBattery.getBatteryCharge()
+            charge = self.client.ALBattery.getBatteryCharge()
+            self.logger.info("BatteryStatus", {"charge": charge})
+            return charge
         except NaoqiProxyError as e:
             print(f"Could not get battery status: {e}")
             return None
@@ -71,6 +85,7 @@ class RobotClient:
         try:
             self.client.ALTracker.setMode(mode_name)
             self.client.ALTracker.setMode(mode_name) # Send command twice for robustnes
+            self.logger.info("TrackingModeSet", {"mode": mode_name})
         except NaoqiProxyError as e:
             print(f"Failed to set tracking mode: {e}")
 
@@ -84,21 +99,34 @@ class RobotClient:
     def toggle_social_state(self, social_state_enabled):
         """Toggles the robot's social state."""
         new_state = not social_state_enabled
-        self.client.ALAutonomousLife.setAutonomousAbilityEnabled("BackgroundMovement", new_state)
-        self.client.ALAutonomousLife.setAutonomousAbilityEnabled("BasicAwareness", new_state)
-        self.client.ALAutonomousLife.setAutonomousAbilityEnabled("ListeningMovement", new_state)
-        self.client.ALAutonomousLife.setAutonomousAbilityEnabled("SpeakingMovement", new_state)
-        self.client.ALAutonomousLife.setAutonomousAbilityEnabled("AutonomousBlinking", new_state)
-        self.client.ALFaceDetection.setTrackingEnabled(new_state)
-        self.client.ALBasicAwareness.setEnabled(new_state)
-        
-        basic_awareness_state = self.client.ALBasicAwareness.isEnabled()
-        print(f"SocialState Status: {basic_awareness_state}")
+        try:
+            self.client.ALAutonomousLife.setAutonomousAbilityEnabled("BackgroundMovement", new_state)
+            self.client.ALAutonomousLife.setAutonomousAbilityEnabled("BasicAwareness", new_state)
+            self.client.ALAutonomousLife.setAutonomousAbilityEnabled("ListeningMovement", new_state)
+            self.client.ALAutonomousLife.setAutonomousAbilityEnabled("SpeakingMovement", new_state)
+            self.client.ALAutonomousLife.setAutonomousAbilityEnabled("AutonomousBlinking", new_state)
+            self.client.ALFaceDetection.setTrackingEnabled(new_state)
+            self.client.ALBasicAwareness.setEnabled(new_state)
+            
+            basic_awareness_state = self.client.ALBasicAwareness.isEnabled()
+            print(f"SocialState Status: {basic_awareness_state}")
+            self.logger.info("SocialStateToggled", {"enabled": new_state, "confirmed_active": basic_awareness_state})
+        except NaoqiProxyError as e:
+            print(f"Error toggling social state: {e}")
+            self.logger.error("SocialStateError", {"error": str(e)})
+            
         return new_state
 
     def move_toward(self, x, y, theta):
         """Commands the robot to move."""
+        import time 
         try:
+            # Throttled Logging
+            now = time.time()
+            if now - self.last_move_log_time >= self.move_log_interval:
+                self.logger.info("MoveCommand", {"x": x, "y": y, "theta": theta})
+                self.last_move_log_time = now
+                
             self.client.ALMotion.moveToward(x, y, theta)
         except NaoqiProxyError as e:
             print(f"Failed to send move command: {e}")

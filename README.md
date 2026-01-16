@@ -82,19 +82,25 @@ The connection to the robot (or simulator) is configured via the `robot.env` fil
 
 Once the application is running, you can enter commands into the terminal.
 
-### Main Menu Commands
+The application uses an interactive selection menu.
 
-*   `A`    - Toggle Autonomous/Social State
-*   `J`    - Start Joystick Teleoperation
-*   `W`    - Wake Up Robot
-*   `R`    - Put Robot to Rest
-*   `T`    - Enter Unified Talk Mode
-*   `Bat`  - Check Robot Battery Status
-*   `q`    - Quit Joystick Teleoperation
-*   `help` - Show this help message
-*   `exit` - Exit the PepperWizard application
+*   **Arrow Keys** (`↑` / `↓`): Navigate selection.
+*   **Enter**: Confirm selection.
 
-### Unified Talk Mode (`T` command)
+```text
+Select Action:
+ > Unified Talk Mode
+   Joystick Teleop
+   Toggle Social State
+   Set Tracking Mode
+   Wake Up Robot
+   Rest Robot
+   Gaze at Marker
+   Check Battery
+   Exit Application
+```
+
+### Unified Talk Mode
 
 When in Unified Talk Mode, you can speak sentences and trigger animations:
 
@@ -129,3 +135,33 @@ You can customise some of the robot's behaviors by editing the JSON files:
 *   **`animations.json`**: Maps animation names to single-character keys. These tags are used internally and by `emoticon_map.json`.
 *   **`emoticon_map.json`**: Maps emoticons (e.g., `:)`, `:(`) to animation names (e.g., `happy`, `sad`). This allows for dynamic animation triggering in Unified Talk Mode.
 *   **`quick_responses.json`**: Defines phrases and animations that can be triggered by hotkeys (e.g., `/N`) in the Unified Talk Mode. The `animation` field in each entry is used to determine which animation to play.
+
+## Logging
+
+PepperWizard includes a logging system that captures robot interactions, user commands, and application events.
+
+### Log Files
+Logs are automatically saved to the `logs/` directory in JSON Lines (JSONL) format.
+
+*   **Default Naming**: Log files are automatically timestamped:
+    `logs/session_YYYY-MM-DD_HH-MM-SS.jsonl`
+*   **Custom Session ID**: You can specify a custom session ID to create a specific filename (e.g., `logs/session_P01.jsonl`):
+    ```bash
+    docker compose run --rm -it pepper-wizard python3 -m pepper_wizard.main --proxy-ip host.docker.internal --proxy-port 5000 --session-id P01
+    ```
+
+### Console Output
+By default, the console output is minimal, only showing critical warnings or errors.
+*   **Verbose Mode**: To see all logs (INFO/DEBUG) in the console in real-time, use the `--verbose` flag:
+    ```bash
+    docker compose run --rm -it pepper-wizard python3 -m pepper_wizard.main --proxy-ip host.docker.internal --proxy-port 5000 --verbose
+    ```
+
+## Testing
+
+To verify PepperWizard end-to-end, run the automated integration test. This simulates a full user session (connecting to the robot, speaking, moving, etc.) and verifies the log output. It is recommended to run this in simulation in case your robot accidentally runs into a wall.
+
+```bash
+docker compose run --rm pepper-wizard python3 tests/integration_test.py
+```
+
