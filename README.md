@@ -4,13 +4,14 @@ PepperWizard is a Python-based application for teleoperating the Pepper robot. I
 
 ## Features
 
-*   **Joystick Teleoperation:** Control the robot's movement in real-time using a DualShock controller.
-*   **Interactive CLI:** A command-line interface for triggering various robot actions.
-*   **Text-to-Speech (TTS):** Make the robot speak any text you provide.
-*   **Animated Speech:** Combine speech with pre-defined animations for more expressive interactions.
+*   **Modern Bridge Architecture:** Integrates with [PepperBox](https://github.com/Action-Prediction-Lab/PepperBox) to wrap the legacy Python 2.7 / NAOqi SDK in a Docker container, allowing you to write modern Python 3 code.
+*   **Fully Dockerised:** Zero-configuration setup suitable for rapid deployment and reproducibility in HRI labs.
+*   **Joystick Teleoperation:** Control the robot's movement in real-time using a DualShock controller via [Dualshock-ZMQ](https://github.com/Action-Prediction-Lab/Dualshock-ZMQ).
+*   **Intelligent Talk Mode:** A unified interface for speech and animation, featuring **slash-command autocomplete**, **spellcheck**, and **emoticon animation triggers**.
+*   **Experimental Logging:** Timestamped JSONL logging of all interactions.
+*   **Interactive TUI:** A minimal menu-driven terminal interface using `prompt_toolkit`.
 *   **Social State Control:** Toggle the robot's autonomous social behaviors.
 *   **Battery Status:** Check the robot's current battery level.
-*   **Dockerised:** The entire application and its dependencies are managed through Docker and Docker Compose for easy setup and execution.
 
 ## Architecture
 
