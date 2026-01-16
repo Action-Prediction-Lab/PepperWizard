@@ -1,3 +1,5 @@
+![PepperWizard Banner](assets/banner_terminal.png)
+
 # PepperWizard
 
 PepperWizard is a Python-based application for teleoperating the Pepper robot. It provides a command-line interface to enable teleoperation via a DualShock controller, as well as to trigger speech, animations, and other actions.
