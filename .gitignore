@@ -25,3 +25,7 @@ dist/
 .idea/
 .vscode/
 *.swp
+
+# Logs
+*.jsonl
+*.log
