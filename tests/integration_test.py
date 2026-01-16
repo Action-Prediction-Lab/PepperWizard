@@ -15,7 +15,7 @@ def verify_full_stack_logging():
     
     # 1. Setup Logging
     print(f"--- Setting up logging to {log_file} ---")
-    setup_logging(log_file, verbose=True)
+    setup_logging(log_file=log_file, verbose=True)
     logger = get_logger("IntegrationTest")
     
     # 2. Connect to Robot

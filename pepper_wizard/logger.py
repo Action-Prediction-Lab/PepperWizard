@@ -22,9 +22,15 @@ class JSONFormatter(logging.Formatter):
         
         return json.dumps(log_record)
 
-def setup_logging(log_file="logs/experiment_log.jsonl", verbose=False):
+def setup_logging(session_id=None, log_file=None, verbose=False):
     """
     Configures the root logger to write to JSONL file and console.
+    
+    Args:
+        session_id (str): Optional ID to include in the filename (e.g. 'P01'). 
+                          If None, a timestamp is used.
+        log_file (str): Specific path to log file. If provided, overrides dynamic naming.
+        verbose (bool): If True, enable DEBUG level and show logs on console.
     """
     root_logger = logging.getLogger()
     # If verbose, capture DEBUG+. If not, still capture INFO+ for FILE, but filter for CONSOLE.
@@ -34,11 +40,26 @@ def setup_logging(log_file="logs/experiment_log.jsonl", verbose=False):
     # clear existing handlers to avoid duplicates if re-initialized
     root_logger.handlers = []
 
+    # Determine log filename
+    if log_file is None:
+        log_dir = "logs"
+        if not os.path.exists(log_dir):
+            os.makedirs(log_dir)
+            
+        if session_id:
+            filename = f"session_{session_id}.jsonl"
+        else:
+            # Format: session_YYYY-MM-DD_HH-MM-SS.jsonl
+            timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            filename = f"session_{timestamp}.jsonl"
+            
+        log_file = os.path.join(log_dir, filename)
+    else:
+        # Operator provided specific path (e.g. for testing)
+        if os.path.dirname(log_file):
+            os.makedirs(os.path.dirname(log_file), exist_ok=True)
+
     # 1. File Handler (JSONL)
-    # Ensure directory exists if path has one
-    if os.path.dirname(log_file):
-        os.makedirs(os.path.dirname(log_file), exist_ok=True)
-        
     file_handler = logging.FileHandler(log_file)
     file_handler.setFormatter(JSONFormatter())
     # File always gets at least INFO, or DEBUG if verbose
@@ -53,8 +74,7 @@ def setup_logging(log_file="logs/experiment_log.jsonl", verbose=False):
     )
     console_handler.setFormatter(console_format)
     
-    # User Request: "if the flag is not present the logs are not visable on the console"
-    # So if verbose=False, we only show WARNING/ERROR. If verbose=True, we show everything.
+    # if verbose=False, show WARNING/ERROR. If verbose=True, show everything
     console_handler.setLevel(logging.WARNING if not verbose else logging.DEBUG)
     
     root_logger.addHandler(console_handler)

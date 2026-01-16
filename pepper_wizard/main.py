@@ -17,11 +17,13 @@ def main():
                         help="Port number of the PepperBox shim server.")
     parser.add_argument("--verbose", action="store_true",
                         help="Enable verbose debug output.")
+    parser.add_argument("--session-id", type=str, default=None,
+                        help="Optional session identifier for the log file.")
     args = parser.parse_args()
 
     # Initialise Logging
     from .logger import setup_logging, get_logger
-    setup_logging(verbose=args.verbose)
+    setup_logging(session_id=args.session_id, verbose=args.verbose)
     logger = get_logger("Main")
 
     cli.print_title()
