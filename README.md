@@ -165,3 +165,7 @@ To verify PepperWizard end-to-end, run the automated integration test. This simu
 docker compose run --rm pepper-wizard python3 tests/integration_test.py
 ```
 
+## License
+
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+
