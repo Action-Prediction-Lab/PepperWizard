@@ -1,0 +1,9 @@
+{
+    "zmq_address": "tcp://localhost:5556",
+    "deadzone": 0.1,
+    "axes": {
+        "strafe": "left_stick_x",
+        "drive": "left_stick_y",
+        "turn": "right_stick_x"
+    }
+}

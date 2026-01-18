@@ -60,7 +60,7 @@ class CommandHandler:
 
         print("Launching Joystick Teleoperation...")
         teleop_running.clear()
-        self.teleop_thread = TeleopThread(self.robot_client, verbose=self.verbose)
+        self.teleop_thread = TeleopThread(self.robot_client, config=self.config, verbose=self.verbose)
         self.teleop_thread.start()
 
     def stop_teleop(self):
