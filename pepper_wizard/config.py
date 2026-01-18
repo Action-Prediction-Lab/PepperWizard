@@ -1,7 +1,11 @@
 # Configuration loading (animations, etc.)
 import json
 
-def load_animations(file_path="animations.json"):
+from pathlib import Path
+
+CONFIG_DIR = Path(__file__).parent / "config"
+
+def load_animations(file_path):
     """Load animations from a JSON file."""
     try:
         with open(file_path, "r") as f:
@@ -12,7 +16,7 @@ def load_animations(file_path="animations.json"):
         print(f"Error loading animations from {file_path}: {e}")
         return {}
 
-def load_quick_responses(file_path="quick_responses.json"):
+def load_quick_responses(file_path):
     """Load quick responses from a JSON file."""
     try:
         with open(file_path, "r") as f:
@@ -23,7 +27,7 @@ def load_quick_responses(file_path="quick_responses.json"):
         print(f"Error loading quick responses from {file_path}: {e}")
         return {}
 
-def load_emoticon_map(file_path="emoticon_map.json"):
+def load_emoticon_map(file_path):
     """Load emoticon to animation tag mappings from a JSON file."""
     try:
         with open(file_path, "r") as f:
@@ -36,10 +40,10 @@ def load_emoticon_map(file_path="emoticon_map.json"):
 
 class Config:
     """A class to hold the application configuration."""
-    def __init__(self, animations_path="pepper_wizard/config/animations.json", quick_responses_path="pepper_wizard/config/quick_responses.json", emoticon_map_path="pepper_wizard/config/emoticon_map.json"):
-        self.animations = load_animations(animations_path)
-        self.quick_responses = load_quick_responses(quick_responses_path)
-        self.emoticon_map = load_emoticon_map(emoticon_map_path)
+    def __init__(self):
+        self.animations = load_animations(CONFIG_DIR / "animations.json")
+        self.quick_responses = load_quick_responses(CONFIG_DIR / "quick_responses.json")
+        self.emoticon_map = load_emoticon_map(CONFIG_DIR / "emoticon_map.json")
 
 def load_config():
     """Load all configurations."""
