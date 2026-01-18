@@ -4,7 +4,7 @@ __pycache__/
 
 # Temporary files
 tmp/
-
+roadmap/
 # Local test files
 zmq_test_subscriber.py
 zmq_test_subscriber_local.py
@@ -28,3 +28,9 @@ dist/
 
 # Logs
 logs/
+
+# Private
+roadmap/
+
+# Images
+*.png
