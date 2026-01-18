@@ -38,7 +38,9 @@ services:
 
   # The PepperWizard bridge application
   pepper-wizard:
-    build: .
+    build:
+      context: .
+      network: host
     image: pepper-wizard:latest
     environment:
       - HF_HUB_OFFLINE=1
