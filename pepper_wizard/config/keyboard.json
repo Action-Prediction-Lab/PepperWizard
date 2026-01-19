@@ -8,6 +8,10 @@
         "s": "backward",
         "a": "strafe_left",
         "d": "strafe_right",
+        "q": "forward_strafe_left",
+        "e": "forward_strafe_right",
+        "z": "backward_strafe_left",
+        "c": "backward_strafe_right",
         "+": "increase_speed",
         "=": "increase_speed",
         "-": "decrease_speed"

@@ -30,8 +30,11 @@ class KeyboardTeleopController(BaseTeleopController):
         self.min_multiplier = self.kb_config.get("min_speed_multiplier", 0.1)
         self.max_multiplier = self.kb_config.get("max_speed_multiplier", 2.0)
         
-        # Last key press time for watchdog
-        self.last_interaction_time = 0
+        # Last key press time for watchdog (per axis)
+        self.last_time_x = 0
+        self.last_time_y = 0
+        self.last_time_theta = 0
+        
         self.active_keys = set()
         self.lock = threading.Lock()
         
@@ -42,7 +45,7 @@ class KeyboardTeleopController(BaseTeleopController):
         """Main loop for keyboard teleop."""
         print(" --- Keyboard Teleoperation Started ---")
         self.logger.info("KeyboardTeleopStarted")
-        print(" Controls: Arrow Keys / WASD to move. +/- to adjust speed.")
+        print(" Controls: Check config/keyboard.json for mappings.")
         print(" Press 'q' or 'Ctrl-C' to exit.")
         
         self.robot_client.set_stiffnesses("Body", 1.0)
@@ -59,14 +62,11 @@ class KeyboardTeleopController(BaseTeleopController):
         # Helper to register keys
         mapping = self.kb_config.get("key_mapping", {})
         
-        @kb.add('q')
         @kb.add('c-c')
         def _(event):
             event.app.exit()
 
         # Dynamic binding based on config
-        # We need to bind every key present in the mapping keys
-        # We assume the config keys match prompt_toolkit key names (e.g. 'up', 'down', '+')
         keys_to_bind = list(mapping.keys())
         
         for k in keys_to_bind:
@@ -81,7 +81,7 @@ class KeyboardTeleopController(BaseTeleopController):
         def get_text():
             return HTML(
                 f"<b>Keyboard Teleop Running</b>\n"
-                f"Speed: {self.speed_multiplier:.1f}x\n"
+                f"Speed: {self.speed_multiplier:.1f}x (Step: {self.speed_step})\n"
                 f"Cmd: x={self.vx:.2f}, y={self.vy:.2f}, theta={self.vtheta:.2f}\n"
                 f"<i>Press 'q' to stop</i>"
             )
@@ -106,8 +106,7 @@ class KeyboardTeleopController(BaseTeleopController):
     def _handle_key(self, key_name):
         """Process a key press event."""
         with self.lock:
-            self.last_interaction_time = time.time()
-            
+            now = time.time()
             mapping = self.kb_config.get("key_mapping", {})
             action = mapping.get(key_name)
             
@@ -127,33 +126,56 @@ class KeyboardTeleopController(BaseTeleopController):
             base_vy = speeds.get("v_y", 0.2) * self.speed_multiplier
             base_vtheta = speeds.get("v_theta", 0.5) * self.speed_multiplier
 
-            if action == 'forward':
+            # Update Velocities & Timestamps
+            if 'forward' in action:
                 self.vx = base_vx
-            elif action == 'backward':
+                self.last_time_x = now
+            if 'backward' in action:
                 self.vx = -base_vx
-            elif action == 'strafe_left':
+                self.last_time_x = now
+            
+            # Check for strafe 
+            if 'strafe_left' in action:
                 self.vy = base_vy
-            elif action == 'strafe_right':
+                self.last_time_y = now
+            if 'strafe_right' in action:
                 self.vy = -base_vy
-            elif action == 'turn_left':
+                self.last_time_y = now
+
+            if 'turn_left' in action:
                 self.vtheta = base_vtheta
-            elif action == 'turn_right':
+                self.last_time_theta = now
+            if 'turn_right' in action:
                 self.vtheta = -base_vtheta
+                self.last_time_theta = now
             
             self.robot_client.move_toward(self.vx, self.vy, self.vtheta)
             if self.app:
                 self.app.invalidate()
 
-
     def _watchdog_loop(self):
-        """Monitor key activity and stop robot if idle."""
+        """Monitor key activity per axis and stop component if idle."""
         while not teleop_running.is_set():
             time.sleep(0.05)
+            now = time.time()
             with self.lock:
-                if time.time() - self.last_interaction_time > self.watchdog_timeout:
-                    # Timeout reached, stop robot
-                    if self.vx != 0 or self.vy != 0 or self.vtheta != 0:
-                        self.vx = 0
-                        self.vy = 0
-                        self.vtheta = 0
-                        self.robot_client.move_toward(0, 0, 0)
+                changed = False
+                # Check X Axis
+                if self.vx != 0 and (now - self.last_time_x > self.watchdog_timeout):
+                    self.vx = 0
+                    changed = True
+                
+                # Check Y Axis
+                if self.vy != 0 and (now - self.last_time_y > self.watchdog_timeout):
+                    self.vy = 0
+                    changed = True
+
+                # Check Theta Axis
+                if self.vtheta != 0 and (now - self.last_time_theta > self.watchdog_timeout):
+                    self.vtheta = 0
+                    changed = True
+                
+                if changed:
+                    self.robot_client.move_toward(self.vx, self.vy, self.vtheta)
+                    if self.app:
+                        self.app.invalidate()
