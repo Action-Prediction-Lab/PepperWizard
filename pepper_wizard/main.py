@@ -40,18 +40,22 @@ def main():
     print(" --- PepperWizard Ready ---")
 
     command_handler = CommandHandler(robot_client, config, verbose=args.verbose)
+    
+    # Teleop State (shared between CLI menu and CommandHandler)
+    default_mode = config.teleop_config.get("default_mode", "Joystick")
+    teleop_state = {"mode": default_mode} 
 
     try:
         while True:
             # command = cli.user_input(session, "Enter Command: ")
-            command = cli.show_main_menu()
+            command = cli.show_main_menu(teleop_state)
             
             if command is None or command == 'exit': # Handle Cancel or Exit
                 print("Shutting down PepperWizard...")
                 logger.info("ApplicationShutdown", {"reason": "UserExit"})
                 break
             
-            command_handler.handle_command(command)
+            command_handler.handle_command(command, teleop_state)
             
     except KeyboardInterrupt:
         print("\nCaught KeyboardInterrupt. Shutting down...")

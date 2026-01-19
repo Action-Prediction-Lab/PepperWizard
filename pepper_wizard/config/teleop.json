@@ -3,5 +3,6 @@
         "v_x": 0.2,
         "v_y": 0.2,
         "v_theta": 0.5
-    }
+    },
+    "default_mode": "Joystick"
 }

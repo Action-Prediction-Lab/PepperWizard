@@ -1,0 +1,15 @@
+{
+    "key_mapping": {
+        "up": "forward",
+        "down": "backward",
+        "left": "turn_left",
+        "right": "turn_right",
+        "w": "forward",
+        "s": "backward",
+        "a": "strafe_left",
+        "d": "strafe_right",
+        "+": "increase_speed",
+        "-": "decrease_speed"
+    },
+    "watchdog_timeout": 0.2
+}
