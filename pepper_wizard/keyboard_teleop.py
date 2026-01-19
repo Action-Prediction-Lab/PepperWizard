@@ -26,6 +26,9 @@ class KeyboardTeleopController(BaseTeleopController):
         
         # Speed multipliers (can be adjusted at runtime)
         self.speed_multiplier = 1.0
+        self.speed_step = self.kb_config.get("speed_step", 0.1)
+        self.min_multiplier = self.kb_config.get("min_speed_multiplier", 0.1)
+        self.max_multiplier = self.kb_config.get("max_speed_multiplier", 2.0)
         
         # Last key press time for watchdog
         self.last_interaction_time = 0
@@ -61,14 +64,18 @@ class KeyboardTeleopController(BaseTeleopController):
         def _(event):
             event.app.exit()
 
-        # Dynamic binding based on config is tricky with decorators, 
-        # so we'll bind common keys and map them inside the handler.
-        keys_to_bind = ['up', 'down', 'left', 'right', 'w', 's', 'a', 'd', '+', '-', '=']
+        # Dynamic binding based on config
+        # We need to bind every key present in the mapping keys
+        # We assume the config keys match prompt_toolkit key names (e.g. 'up', 'down', '+')
+        keys_to_bind = list(mapping.keys())
         
         for k in keys_to_bind:
-            @kb.add(k)
-            def _(event, key_bind=k):
-                self._handle_key(key_bind)
+            try:
+                @kb.add(k)
+                def _(event, key_bind=k):
+                    self._handle_key(key_bind)
+            except Exception as e:
+                print(f"Warning: Could not bind key '{k}': {e}")
 
         # Simple UI
         def get_text():
@@ -102,21 +109,16 @@ class KeyboardTeleopController(BaseTeleopController):
             self.last_interaction_time = time.time()
             
             mapping = self.kb_config.get("key_mapping", {})
-
-            if key_name == '=': key_name = '+' # Common mapping
-            
             action = mapping.get(key_name)
+            
             if not action:
-                if key_name == 'up': action = 'forward'
-                elif key_name == 'down': action = 'backward'
-                elif key_name == 'left': action = 'turn_left'
-                elif key_name == 'right': action = 'turn_right'
+                 return
 
             if action == 'increase_speed':
-                self.speed_multiplier = min(2.0, self.speed_multiplier + 0.1)
+                self.speed_multiplier = min(self.max_multiplier, self.speed_multiplier + self.speed_step)
                 return
             elif action == 'decrease_speed':
-                self.speed_multiplier = max(0.1, self.speed_multiplier - 0.1)
+                self.speed_multiplier = max(self.min_multiplier, self.speed_multiplier - self.speed_step)
                 return
 
             # Get base speeds
