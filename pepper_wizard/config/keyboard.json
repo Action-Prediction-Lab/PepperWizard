@@ -1,0 +1,23 @@
+{
+    "key_mapping": {
+        "up": "forward",
+        "down": "backward",
+        "left": "turn_left",
+        "right": "turn_right",
+        "w": "forward",
+        "s": "backward",
+        "a": "strafe_left",
+        "d": "strafe_right",
+        "q": "forward_strafe_left",
+        "e": "forward_strafe_right",
+        "z": "backward_strafe_left",
+        "c": "backward_strafe_right",
+        "+": "increase_speed",
+        "=": "increase_speed",
+        "-": "decrease_speed"
+    },
+    "watchdog_timeout": 0.2,
+    "speed_step": 0.1,
+    "min_speed_multiplier": 0.1,
+    "max_speed_multiplier": 2.0
+}

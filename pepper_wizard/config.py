@@ -60,6 +60,17 @@ def load_dualshock_config(file_path):
         print(f"Error loading dualshock config from {file_path}: {e}")
         return {}
 
+def load_keyboard_config(file_path):
+    """Load keyboard configuration from a JSON file."""
+    try:
+        with open(file_path, "r") as f:
+            kb_config = json.load(f)
+        print("Keyboard config loaded successfully.")
+        return kb_config
+    except (IOError, json.JSONDecodeError) as e:
+        print(f"Error loading keyboard config from {file_path}: {e}")
+        return {}
+
 class Config:
     """A class to hold the application configuration."""
     def __init__(self):
@@ -68,6 +79,7 @@ class Config:
         self.emoticon_map = load_emoticon_map(CONFIG_DIR / "emoticon_map.json")
         self.teleop_config = load_teleop_config(CONFIG_DIR / "teleop.json")
         self.dualshock_config = load_dualshock_config(CONFIG_DIR / "dualshock.json")
+        self.keyboard_config = load_keyboard_config(CONFIG_DIR / "keyboard.json")
 
 def load_config():
     """Load all configurations."""

@@ -2,8 +2,9 @@ import time
 
 # Manages and dispatches operator commands
 from . import cli
-from .teleop import TeleopThread, teleop_running
-from .exp_behaviors.behaviors import gaze_at_marker # Import the new behavior function
+from .teleop import TeleopThread, ZMQTeleopController, teleop_running
+from .keyboard_teleop import KeyboardTeleopController
+from .exp_behaviors.behaviors import gaze_at_marker # Import the behavior function
 
 class CommandHandler:
     """Handles user commands and dispatches them to the correct functions."""
@@ -19,12 +20,16 @@ class CommandHandler:
         from .logger import get_logger
         self.logger = get_logger("CommandHandler")
 
-    def handle_command(self, command):
+    def handle_command(self, command, teleop_state=None):
         """Handles a single user command."""
         self.logger.info("CommandReceived", {"command": command})
         command = command.lower()
         if command == 'j':
-            self.start_teleop()
+            # Toggle Teleop
+            if self.teleop_thread is not None and self.teleop_thread.is_alive():
+                 self.stop_teleop()
+            else:
+                 self.start_teleop(teleop_state)
         elif command == 'w':
             self.robot_client.wake_up()
         elif command == 'r':
@@ -52,16 +57,26 @@ class CommandHandler:
         else:
             print("Command not recognised.")
 
-    def start_teleop(self):
+    def start_teleop(self, teleop_state=None):
         """Starts the teleoperation thread."""
         if self.teleop_thread is not None and self.teleop_thread.is_alive():
             print("Teleoperation is already running.")
             return
 
-        print("Launching Joystick Teleoperation...")
+        mode = teleop_state.get('mode', 'Joystick') if teleop_state else 'Joystick'
+        print(f"Launching {mode} Teleoperation...")
+        
         teleop_running.clear()
-        self.teleop_thread = TeleopThread(self.robot_client, config=self.config, verbose=self.verbose)
-        self.teleop_thread.start()
+        
+        if mode == 'Keyboard':
+            # Keyboard teleop must run in the main thread (blocking) to capture input
+            controller = KeyboardTeleopController(self.robot_client, config=self.config, verbose=self.verbose)
+            controller.run()
+            # After it returns, it's done
+            self.teleop_thread = None
+        else:
+            self.teleop_thread = ZMQTeleopController(self.robot_client, config=self.config, verbose=self.verbose)
+            self.teleop_thread.start()
 
     def stop_teleop(self):
         """Stops the teleoperation thread."""

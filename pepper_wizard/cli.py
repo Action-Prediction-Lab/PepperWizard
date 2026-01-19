@@ -14,10 +14,11 @@ from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.formatted_text import HTML
 
 class InteractiveMenu:
-    def __init__(self, title, options):
+    def __init__(self, title, options, on_toggle=None):
         self.title = title
-        self.options = options # List of (key, label)
+        self.options = options # List of [key, label] (mutable for label updates)
         self.selected_index = 0
+        self.on_toggle = on_toggle # Callback(index, options) -> None
 
     def get_text(self):
         text = [f"<b>{self.title}</b>\n"]
@@ -26,6 +27,11 @@ class InteractiveMenu:
                 text.append(f" <ansicyan>&gt; {label}</ansicyan>\n")
             else:
                 text.append(f"   {label}\n")
+        
+        # Add footer instruction if toggle is available for selected item
+        if self.on_toggle and self.options[self.selected_index][0] == 'j': # Hardcoded hint for now
+             text.append("\n <i>[Tab] Toggle Input Mode</i>")
+             
         return HTML("".join(text))
 
     def run(self):
@@ -38,6 +44,11 @@ class InteractiveMenu:
         @bindings.add('down')
         def _(event):
             self.selected_index = (self.selected_index + 1) % len(self.options)
+        
+        @bindings.add('tab')
+        def _(event):
+            if self.on_toggle:
+                self.on_toggle(self.selected_index, self.options)
 
         @bindings.add('enter')
         def _(event):
@@ -55,21 +66,46 @@ class InteractiveMenu:
         )
         return app.run()
 
-def show_main_menu():
-    """Displays the main menu using a custom text selection."""
+def show_main_menu(teleop_state):
+    """
+    Displays the main menu.
+    teleop_state: A dictionary {'mode': 'Joystick' or 'Keyboard'}
+    """
+    current_mode = teleop_state.get('mode', 'Joystick')
+    
+    # helper to update label
+    def update_label(opts):
+        for i, opt in enumerate(opts):
+            if opt[0] == 'j':
+                opts[i] = ('j', f"{teleop_state['mode']} Teleop")
+                break
+
+    options = [
+        ("t", "Unified Talk Mode"),
+        ("j", f"{current_mode} Teleop"),
+        ("a", "Toggle Social State"),
+        ("s", "Set Tracking Mode"),
+        ("w", "Wake Up Robot"),
+        ("r", "Rest Robot"),
+        ("gm", "Gaze at Marker"),
+        ("bat", "Check Battery"),
+        ("exit", "Exit Application")
+    ]
+    
+    # Convert tuples to lists to make them mutable for the menu
+    options = [list(o) for o in options]
+
+    def on_toggle(index, opts):
+        if opts[index][0] == 'j':
+            # Toggle state
+            new_mode = "Keyboard" if teleop_state['mode'] == "Joystick" else "Joystick"
+            teleop_state['mode'] = new_mode
+            update_label(opts)
+
     menu = InteractiveMenu(
         title="Select Action:",
-        options=[
-            ("t", "Unified Talk Mode"),
-            ("j", "Joystick Teleop"),
-            ("a", "Toggle Social State"),
-            ("s", "Set Tracking Mode"),
-            ("w", "Wake Up Robot"),
-            ("r", "Rest Robot"),
-            ("gm", "Gaze at Marker"),
-            ("bat", "Check Battery"),
-            ("exit", "Exit Application")
-        ]
+        options=options,
+        on_toggle=on_toggle
     )
     return menu.run()
 
