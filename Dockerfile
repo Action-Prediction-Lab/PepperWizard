@@ -7,6 +7,12 @@ FROM python:3.9-slim
 # Set the working directory in the container
 WORKDIR /usr/src/app
 
+# Install system dependencies for OpenCV
+RUN apt-get update && apt-get install -y \
+    libgl1 \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copy the requirements file into the container
 COPY requirements.txt .
 

@@ -24,8 +24,8 @@ services:
               count: all
               capabilities: [ gpu ]
     # We run a shell to keep it alive and allow exec-ing into it.
-    # The shim server should be started manually inside the container for now.
-    command: [ "/home/pepperdev/.pyenv/versions/2.7.18/bin/python", "/home/pepperdev/py3-naoqi-bridge/shim_server.py" ]
+    # We run the entrypoint script which starts both the shim server and the video streamer
+    command: [ "/home/pepperdev/entrypoint.sh" ]
 
   # The Dualshock publisher service
   dualshock-publisher:
@@ -56,3 +56,23 @@ services:
     volumes:
       - .:/usr/src/app
     restart: on-failure
+
+  # The Vision Perception Service (YOLO)
+  perception-service:
+    build: ../PepperPerception
+    image: pepper-perception:latest
+    shm_size: '2gb'
+    command: [ "python", "-m", "perception_service.main", "--model", "yolov8m.pt" ]
+    ports:
+      - "5557:5557"
+    volumes:
+      - ../PepperPerception:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [ gpu ]

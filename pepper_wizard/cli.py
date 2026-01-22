@@ -88,6 +88,7 @@ def show_main_menu(teleop_state):
         ("w", "Wake Up Robot"),
         ("r", "Rest Robot"),
         ("gm", "Gaze at Marker"),
+        ("tr", "Track Object"),
         ("bat", "Check Battery"),
         ("exit", "Exit Application")
     ]
@@ -159,6 +160,16 @@ class SlashCompleter(Completer):
                 # We want to replace everything including the slash
                 # "Hello /hap" -> replace "/hap" (4 chars) with "/happy"
                 yield Completion(word, start_position=-(len(current_word) + 1))
+
+def get_tracking_target():
+    """Prompts the user for an object to track."""
+    session = PromptSession()
+    try:
+        print("Enter object class to track (e.g. 'bottle', 'person'). Leave empty to stop.")
+        target = session.prompt("Track Object: ")
+        return target.strip() if target else None
+    except (EOFError, KeyboardInterrupt):
+        return None
 
 def print_title():
     """Prints the application title."""

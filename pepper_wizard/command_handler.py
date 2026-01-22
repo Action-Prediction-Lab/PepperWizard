@@ -58,7 +58,17 @@ class CommandHandler:
             self.stop_teleop()
         elif command == 'help':
             cli.print_help()
+        elif command == 'tr':
+            # Interactive Tracking Setup
+            target = cli.get_tracking_target()
+            if target:
+                print(f"Tracking: {target}")
+                self.vision_client.set_target(target)
+            else:
+                print("Stopping tracking.")
+                self.vision_client.set_target(None)
         elif command.startswith('track '):
+            # Keep legacy slash support just in case
             target = command.split(' ', 1)[1]
             print(f"Tracking: {target}")
             self.vision_client.set_target(target)
