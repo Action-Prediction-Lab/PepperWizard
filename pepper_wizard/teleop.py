@@ -101,10 +101,24 @@ class ZMQTeleopController(BaseTeleopController):
                 continue # No message, continue loop
 
             try:
+                # Receive the first available message
                 message = self.subscriber.recv_json()
+                
+                # Drain the queue to get the latest message
+                while True:
+                    try:
+                        latest = self.subscriber.recv_json(flags=zmq.NOBLOCK)
+                        message = latest
+                        if self.verbose:
+                            print("[ZMQTeleopController] Skipped old message in queue")
+                    except zmq.Again:
+                        break # Queue is empty
+                
+                # Process only the latest message
                 if self.verbose:
-                    print(f"[ZMQTeleopController] Received ZMQ message: {message}") 
+                    print(f"[ZMQTeleopController] Processing latest ZMQ message: {message}") 
                 self.handle_controller_input(message)
+                
             except zmq.ZMQError as e:
                 print(f"ZMQ Error in ZMQTeleopController: {e}")
                 self.logger.error("ZMQError", {"error": str(e)})
