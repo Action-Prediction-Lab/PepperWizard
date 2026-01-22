@@ -46,7 +46,6 @@ class KeyboardTeleopController(BaseTeleopController):
         print(" --- Keyboard Teleoperation Started ---")
         self.logger.info("KeyboardTeleopStarted")
         print(" Controls: Check config/keyboard.json for mappings.")
-        print(" Press 'q' or 'Ctrl-C' to exit.")
         
         self.robot_client.set_stiffnesses("Body", 1.0)
         self.logger.info("StiffnessSet", {"body_part": "Body", "value": 1.0})
@@ -83,8 +82,8 @@ class KeyboardTeleopController(BaseTeleopController):
                 f"<b>Keyboard Teleop Running</b>\n"
                 f"Speed: {self.speed_multiplier:.1f}x (Step: {self.speed_step})\n"
                 f"Cmd: x={self.vx:.2f}, y={self.vy:.2f}, theta={self.vtheta:.2f}\n"
-                f"<i>Press 'q' to stop</i>"
-            )
+                f"<i>Press 'Ctrl-C' to stop</i>")
+
 
         self.app = Application(
             layout=Layout(Window(content=FormattedTextControl(get_text))),
