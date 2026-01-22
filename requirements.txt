@@ -1,6 +1,7 @@
 flask
 requests
 pyzmq
+opencv-python-headless
 prompt_toolkit
 numpy
 transformers
