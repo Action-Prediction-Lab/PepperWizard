@@ -2,17 +2,19 @@ import logging
 
 class PIDController:
     """
-    A simple PD Controller for the robot head servo.
+    A simple PID Controller for the robot head servo.
     Separated from VisionClient to allow independent 50Hz updates.
     """
-    def __init__(self, kp=0.1, kd=0.02, deadzone=0.05, max_output=0.1):
+    def __init__(self, kp=0.1, kd=0.02, ki=0.0, deadzone=0.05, max_output=0.1):
         self.kp = kp
         self.kd = kd
+        self.ki = ki
         self.deadzone = deadzone
         self.max_output = max_output
         
         # State
         self.prev_error = 0.0
+        self.integral = 0.0
         
     def update(self, error, dt):
         """
@@ -23,8 +25,7 @@ class PIDController:
         # Deadzone
         if abs(error) < self.deadzone:
             error = 0.0
-            # Reset derivative term to prevent jumps when leaving deadzone? 
-            # Or keep state? Keeping state is usually better for smoothness.
+            self.integral = 0.0 # Reset integral in deadzone to prevent drift
             
         if dt <= 0.001:
             dt = 0.001
@@ -32,8 +33,14 @@ class PIDController:
         # Derivative
         d_error = (error - self.prev_error) / dt
         
-        # PD Law
-        output = (self.kp * error) + (self.kd * d_error)
+        # Integral
+        self.integral += error * dt
+        # Anti-windup (simple clamp on integral)
+        if self.integral > 0.5: self.integral = 0.5
+        if self.integral < -0.5: self.integral = -0.5
+        
+        # PID Law
+        output = (self.kp * error) + (self.kd * d_error) + (self.ki * self.integral)
         
         # Clamp
         if output > self.max_output: output = self.max_output

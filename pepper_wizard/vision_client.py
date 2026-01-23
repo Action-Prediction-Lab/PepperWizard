@@ -85,6 +85,15 @@ class VisionReceiver(threading.Thread):
                     w, h = 640, 480
                     img_np = np.frombuffer(img_data, dtype=np.uint8).reshape((h, w, 3))
                     img_bgr = cv2.cvtColor(img_np, cv2.COLOR_RGB2BGR)
+                elif len(img_data) == 38400:
+                    # QQVGA YUYV (160x120 * 2 bytes)
+                    # Extract Y-channel (Every other byte)
+                    y_channel = img_data[0::2] # Length 19200
+                    h, w = 120, 160
+                    img_np = np.frombuffer(y_channel, dtype=np.uint8).reshape((h, w))
+                    # Resize back to 320x240
+                    img_resized = cv2.resize(img_np, (320, 240))
+                    img_bgr = cv2.cvtColor(img_resized, cv2.COLOR_GRAY2BGR)
                 else:
                     print(f"Warning: Unknown image size {len(img_data)}")
                     continue

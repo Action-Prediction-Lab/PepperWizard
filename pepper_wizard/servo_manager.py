@@ -23,10 +23,12 @@ class ServoManager(threading.Thread):
         # TUNING: Increased measurement noise to 100.0 to heavily smooth out detection jitter
         self.kf = KalmanFilter(process_noise=0.1, measurement_noise=100.0)
         
-        # TUNING: Drastically reduced gains for 50Hz loop.
-        # Since we update 6x faster (50Hz vs 8Hz), we need smaller corrections per step.
-        self.pid_yaw = PIDController(kp=0.04, kd=0.005, max_output=0.1)
-        self.pid_pitch = PIDController(kp=0.03, kd=0.002, max_output=0.1)
+        # TUNING: Stable & Precise (Optimized for ~20 FPS Mediapipe)
+        # Kp Reduced (0.08 -> 0.05) to stop jitter
+        # Kd Increased (0.01 -> 0.012) for damping
+        # Ki Kept (0.005) to fix steady-state error
+        self.pid_yaw = PIDController(kp=0.05, kd=0.012, ki=0.005, max_output=0.15)
+        self.pid_pitch = PIDController(kp=0.04, kd=0.008, ki=0.005, max_output=0.15)
         
         self.active_target = False
         
@@ -89,10 +91,16 @@ class ServoManager(threading.Thread):
                 yaw_change = self.pid_yaw.update(err_x, dt)
                 pitch_change = self.pid_pitch.update(err_y, dt)
                 
+                # LOGGING: Write to CSV for tuning
+                # timestamp, raw_x, pred_x, error_x, output_yaw
+                raw_x = measurement[0] if measurement else -1
+                with open("pid_log.csv", "a") as f:
+                    f.write(f"{time.time()},{raw_x},{pred_x},{err_x},{yaw_change}\n")
+                
                 # 3. Actuate
                 try:
-                    # Move smoothly (Speed reduced to 0.2 for safety)
-                    self.robot_client.client.ALMotion.changeAngles(["HeadYaw", "HeadPitch"], [yaw_change, pitch_change], 0.2)
+                    # Move smoothly (Speed increased to 0.3 for better tracking)
+                    self.robot_client.client.ALMotion.changeAngles(["HeadYaw", "HeadPitch"], [yaw_change, pitch_change], 0.3)
                 except Exception as e:
                     print(f"Servo Error: {e}")
             
