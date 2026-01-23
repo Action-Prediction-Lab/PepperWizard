@@ -9,6 +9,7 @@ services:
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix # For running GUI apps like Choregraphe
       - ./robot.env:/home/pepperdev/py3-naoqi-bridge/robot.env
+      - ../PepperBox/py3-naoqi-bridge:/home/pepperdev/py3-naoqi-bridge
     env_file:
       - robot.env
     environment:
@@ -43,6 +44,7 @@ services:
     environment:
       - HF_HUB_OFFLINE=1
       - TRANSFORMERS_OFFLINE=1
+      - PYTHONPATH=/usr/src/app
     command: [ "python", "-m", "pepper_wizard.main", "--proxy-ip", "host.docker.internal", "--proxy-port", "5000" ]
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -57,12 +59,12 @@ services:
       - .:/usr/src/app
     restart: on-failure
 
-  # The Vision Perception Service (YOLO)
+  # The Vision Perception Service (YOLO/Mediapipe)
   perception-service:
     build: ../PepperPerception
     image: pepper-perception:latest
     shm_size: '2gb'
-    command: [ "python", "-m", "perception_service.main", "--model", "yolov8m.pt" ]
+    command: [ "python", "-m", "perception_service.main", "--backend", "combined" ]
     ports:
       - "5557:5557"
     volumes:

@@ -17,8 +17,8 @@ class CommandHandler:
         self.current_mode_index = 0
         self.social_state_enabled = False # This state should ideally be managed by a dedicated social state module or the robot_client
         
-        from .vision_client import VisionClient
-        self.vision_client = VisionClient(robot_client)
+        from .vision_client import VisionReceiver
+        self.vision_client = VisionReceiver(robot_client)
         self.vision_client.start()
         
         from .logger import get_logger
