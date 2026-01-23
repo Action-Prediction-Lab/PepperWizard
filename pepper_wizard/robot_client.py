@@ -139,3 +139,7 @@ class RobotClient:
     def set_stiffnesses(self, body_part, stiffness):
         """Sets the stiffness of a body part."""
         self.client.ALMotion.setStiffnesses(body_part, stiffness)
+
+    def get_angles(self, names, use_sensors=True):
+        """Gets the angles of joins."""
+        return self.client.ALMotion.getAngles(names, use_sensors)

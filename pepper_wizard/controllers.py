@@ -35,9 +35,9 @@ class PIDController:
         
         # Integral
         self.integral += error * dt
-        # Anti-windup (simple clamp on integral)
-        if self.integral > 0.5: self.integral = 0.5
-        if self.integral < -0.5: self.integral = -0.5
+        # Anti-windup (Tighter clamp: 0.3)
+        if self.integral > 0.3: self.integral = 0.3
+        if self.integral < -0.3: self.integral = -0.3
         
         # PID Law
         output = (self.kp * error) + (self.kd * d_error) + (self.ki * self.integral)

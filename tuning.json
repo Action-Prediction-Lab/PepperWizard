@@ -1,0 +1,29 @@
+{
+    "adaptive": false,
+    "stiffness": {
+        "min": 0.7,
+        "max": 0.7,
+        "sensitivity": 0.0,
+        "smoothing": 0.0
+    },
+    "kalman": {
+        "process_noise": 0.1,
+        "measurement_noise": 150.0,
+        "latency_comp": 0.12
+    },
+    "pid": {
+        "base_kp": 0.045,
+        "boost_kp": 0.0,
+        "kd": 0.03,
+        "ki": 0.015,
+        "max_output": 0.20,
+        "output_smoothing": 0.0
+    },
+    "body": {
+        "enabled": false,
+        "deadzone_yaw": 0.35,
+        "kp_base": 0.2,
+        "max_speed": 0.2,
+        "feed_forward": true
+    }
+}
