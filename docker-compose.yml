@@ -28,6 +28,17 @@ services:
     # We run the entrypoint script which starts both the shim server and the video streamer
     command: [ "/home/pepperdev/entrypoint.sh" ]
 
+  # Proprioception Service (New - Runs on Robot/Simulator via Bridge)
+  proprioception-service:
+    image: jwgcurrie/pepper-box:01-26-latest
+    network_mode: "host"
+    volumes:
+      - ./robot.env:/home/pepperdev/py3-naoqi-bridge/robot.env
+      - ../PepperBox/py3-naoqi-bridge:/home/pepperdev/py3-naoqi-bridge
+    env_file:
+      - robot.env
+    command: [ "/home/pepperdev/.pyenv/versions/2.7.18/bin/python", "/home/pepperdev/py3-naoqi-bridge/proprioception_service.py" ]
+
   # The Dualshock publisher service
   dualshock-publisher:
     image: jwgcurrie/dualshock_publisher:latest
@@ -51,6 +62,7 @@ services:
     depends_on:
       - pepper-robot-env
       - dualshock-publisher
+      - perception-service
     # stdin_open and tty are crucial for the interactive command prompt
     stdin_open: true
     tty: true

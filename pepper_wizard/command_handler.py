@@ -17,9 +17,9 @@ class CommandHandler:
         self.current_mode_index = 0
         self.social_state_enabled = False # This state should ideally be managed by a dedicated social state module or the robot_client
         
-        from .vision_client import VisionReceiver
-        self.vision_client = VisionReceiver(robot_client)
-        self.vision_client.start()
+        from .control.tracking_controller import TrackingController
+        self.tracker = TrackingController(robot_client)
+        self.tracker.start()
         
         from .logger import get_logger
         self.logger = get_logger("CommandHandler")
@@ -63,18 +63,18 @@ class CommandHandler:
             target = cli.get_tracking_target()
             if target:
                 print(f"Tracking: {target}")
-                self.vision_client.set_target(target)
+                self.tracker.set_target(target)
             else:
                 print("Stopping tracking.")
-                self.vision_client.set_target(None)
+                self.tracker.set_target(None)
         elif command.startswith('track '):
             # Keep legacy slash support just in case
             target = command.split(' ', 1)[1]
             print(f"Tracking: {target}")
-            self.vision_client.set_target(target)
+            self.tracker.set_target(target)
         elif command == 'stoptrack':
             print("Stopping tracking.")
-            self.vision_client.set_target(None)
+            self.tracker.set_target(None)
         else:
             print("Command not recognised.")
 
@@ -118,5 +118,5 @@ class CommandHandler:
     def cleanup(self):
         """Cleans up resources, like stopping the teleop thread."""
         self.stop_teleop()
-        if self.vision_client:
-            self.vision_client.stop()
+        if self.tracker:
+            self.tracker.stop()

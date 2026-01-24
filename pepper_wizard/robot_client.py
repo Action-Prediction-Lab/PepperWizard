@@ -143,3 +143,7 @@ class RobotClient:
     def get_angles(self, names, use_sensors=True):
         """Gets the angles of joins."""
         return self.client.ALMotion.getAngles(names, use_sensors)
+        
+    def set_angles(self, names, angles, fraction_max_speed):
+        """Sets the angles of joints (Absolute Position Control)."""
+        self.client.ALMotion.setAngles(names, angles, fraction_max_speed)

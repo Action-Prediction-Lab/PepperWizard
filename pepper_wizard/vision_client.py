@@ -4,7 +4,9 @@ import numpy as np
 import threading
 import time
 import json
+import struct
 from .servo_manager import ServoManager
+from .state_buffer import StateBuffer
 
 class VisionReceiver(threading.Thread):
     def __init__(self, robot_client, perception_uri="tcp://localhost:5557", streamer_uri="tcp://localhost:5559"):
@@ -16,8 +18,12 @@ class VisionReceiver(threading.Thread):
         self.target_class = None
         self.lock = threading.Lock()
         
+        
         # Instantiate Servo Manager (The "Brain")
         self.servo_manager = ServoManager(robot_client)
+        
+        # Instantiate State Buffer (The "Memory")
+        self.state_buffer = StateBuffer()
         
     def set_target(self, target_class):
         with self.lock:
@@ -31,7 +37,9 @@ class VisionReceiver(threading.Thread):
     def run(self):
         self.running = True
         
+        
         # Start the Reflexes
+        self.state_buffer.start()
         self.servo_manager.start()
         
         print(f"VisionReceiver: Connecting to Streamer at {self.streamer_uri}...")
@@ -68,7 +76,25 @@ class VisionReceiver(threading.Thread):
                     else:
                         continue
                 
-                topic, img_data = msg
+                topic, msg_data = msg
+                
+                # Extract Timestamp (first 8 bytes, double)
+                # VideoStreamer sends: [Header(8B)][ImageBytes]
+                # Actually, ZMQ multipart is: [Topic, Header, ImageBytes] 
+                # OR [Topic, PackedData] depending on my implementation in video_streamer
+                # Let's check video_streamer implementation:
+                # socket.send_multipart(["video", header, y_channel])
+                # So we expect 3 parts: Topic, Header, Data
+                
+                if len(msg) == 3:
+                    topic, header, img_data = msg
+                    timestamp = struct.unpack('d', header)[0]
+                elif len(msg) == 2:
+                    # Legacy fallback (just in case)
+                    topic, img_data = msg
+                    timestamp = time.time() # Best guess (bad for sync)
+                else:
+                    continue
                                         
                 # 2. Decode (Greyscale or YUV)
                 w, h = 320, 240
@@ -156,7 +182,14 @@ class VisionReceiver(threading.Thread):
                             
                 # 5. Update State
                 if target_bbox:
-                    self.servo_manager.update_measurement(target_bbox)
+                    # Get Robot Head State at the time of image capture
+                    robot_state = self.state_buffer.get_state_at(timestamp)
+                    if robot_state:
+                        # Pass both BBox and the ground-truth angles
+                        self.servo_manager.update_measurement(target_bbox, robot_state)
+                    else:
+                        # Fallback (ServoManager will use current angles, less accurate)
+                        self.servo_manager.update_measurement(target_bbox, None)
                                 
             except Exception as e:
                 print(f"VisionReceiver Error: {e}")
