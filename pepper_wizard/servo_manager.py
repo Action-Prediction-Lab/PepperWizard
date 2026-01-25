@@ -58,6 +58,11 @@ class ServoManager(threading.Thread):
         
         # Initial stiffness
         self.load_tuning()
+        
+        # Initialize Log
+        with open("motion_log.csv", "w") as f:
+            f.write("timestamp,dt,raw_x,pred_x,curr_yaw,target_yaw,cmd_yaw,delta_yaw,speed_limit\n")
+            
         # Fix: Extract 'min' (or specific start value) instead of passing the whole dict
         init_stiffness = self.tuning.get("stiffness", {}).get("min", 0.6)
         if isinstance(self.tuning.get("stiffness"), (int, float)):
@@ -137,16 +142,13 @@ class ServoManager(threading.Thread):
                             if current_angles:
                                 curr_yaw, curr_pitch = current_angles
 
-                        # 2. Calculate Error (Raw BBox, bypassing KF)
-                        # KF in pixel space confuses ego-motion with target motion
-                        if measurement:
-                            raw_cx = measurement[0]
-                            raw_cy = measurement[1]
-                            err_x = -(raw_cx - (self.width / 2)) / (self.width / 2)
-                            err_y = (raw_cy - (self.height / 2)) / (self.height / 2)
-                        else:
-                            err_x = 0.0
-                            err_y = 0.0
+                        # 2. Calculate Error (Using Kalman Prediction)
+                        # We use the Predicted state to filter noise and compensate for latency
+                        use_x = pred_x if pred_x is not None else (measurement[0] if measurement else (self.width/2))
+                        use_y = pred_y if pred_y is not None else (measurement[1] if measurement else (self.height/2))
+                        
+                        err_x = -(use_x - (self.width / 2)) / (self.width / 2)
+                        err_y = (use_y - (self.height / 2)) / (self.height / 2)
                             
                         # 3. Calculate Offset based on FOV
                         native_cfg = self.tuning.get("native", {})
@@ -194,15 +196,40 @@ class ServoManager(threading.Thread):
                         target_yaw = self.smoothed_yaw
                         target_pitch = self.smoothed_pitch
                         
-                        # 5. Command Native Smoothing
+                        # 5. Velocity Clamping & Command
+                        # Limit the rate of change of the target to prevent "snapping"
+                        MAX_SPEED_DEG_S = native_cfg.get("max_vel_deg_s", 60.0)
+                        max_step = MAX_SPEED_DEG_S * (np.pi/180.0) * dt
+                        
+                        if not hasattr(self, 'last_commanded_yaw'):
+                             self.last_commanded_yaw = curr_yaw
+                             self.last_commanded_pitch = curr_pitch
+
+                        delta_yaw = target_yaw - self.last_commanded_yaw
+                        delta_pitch = target_pitch - self.last_commanded_pitch
+                        
+                        # Clamp
+                        delta_yaw = max(-max_step, min(max_step, delta_yaw))
+                        delta_pitch = max(-max_step, min(max_step, delta_pitch))
+                        
+                        cmd_yaw = self.last_commanded_yaw + delta_yaw
+                        cmd_pitch = self.last_commanded_pitch + delta_pitch
+                        
+                        self.last_commanded_yaw = cmd_yaw
+                        self.last_commanded_pitch = cmd_pitch
+                        
                         if abs(yaw_offset) > 0.001 or abs(pitch_offset) > 0.001:
                              self.robot_client.set_angles(["HeadYaw", "HeadPitch"], 
-                                                        [target_yaw, target_pitch], 
+                                                        [cmd_yaw, cmd_pitch], 
                                                         speed)
                                                        
                         # LOGGING
-                        with open("pid_log.csv", "a") as f:
-                            f.write(f"{time.time()},{measurement[0] if measurement else -1},{pred_x},{err_x},{target_yaw},NATIVE\n")
+                        # with open("motion_log.csv", "a") as f: ...
+                        
+                        # DEBUG TO STDOUT
+                        if loop_count % 10 == 0: # 5Hz
+                             print(f"NATIVE_DBG: raw={measurement[0] if measurement else -1:.1f} pred={pred_x:.1f} trg={target_yaw:.3f} cmd={cmd_yaw:.3f} dt={dt:.3f}")
+
 
                     except Exception as e:
                         print(f"Native Control Error: {e}")

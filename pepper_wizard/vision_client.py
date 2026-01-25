@@ -42,8 +42,7 @@ class VisionReceiver(threading.Thread):
         self.state_buffer.start()
         self.servo_manager.start()
         
-        print(f"VisionReceiver: Connecting to Streamer at {self.streamer_uri}...")
-        print(f"VisionReceiver: Connecting to Perception at {self.perception_uri}...")
+        # Connecting (Silenced for clean CLI)
         
         context = zmq.Context()
         
@@ -61,7 +60,7 @@ class VisionReceiver(threading.Thread):
         perception_req = context.socket(zmq.REQ)
         perception_req.connect(self.perception_uri)
         
-        print(f"VisionReceiver: Started (v3 - Predictive Tracking). Source: {__file__}")
+        # Started (Silenced for clean CLI)
         
         while self.running:
             try:
@@ -172,7 +171,7 @@ class VisionReceiver(threading.Thread):
                     max_conf = 0.0
                     
                     for det in detections:
-                        if det["class"] == local_target and det["confidence"] > 0.4:
+                        if det["class"] == local_target and det["confidence"] > 0.25:
                             if det["confidence"] > max_conf:
                                 max_conf = det["confidence"]
                                 best_det = det
@@ -198,5 +197,5 @@ class VisionReceiver(threading.Thread):
         video_sub.close()
         perception_req.close()
         context.term()
-        print("VisionReceiver: Stopped.")
+        # Stopped (Silenced for clean CLI)
 

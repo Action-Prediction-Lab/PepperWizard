@@ -25,7 +25,7 @@ class StateBuffer(threading.Thread):
         socket.connect(self.zmq_addr)
         socket.setsockopt_string(zmq.SUBSCRIBE, "joints")
         
-        print(f"StateBuffer: Subscribed to {self.zmq_addr}")
+        # Subscribed to {self.zmq_addr} (Silenced for clean CLI)
         
         while self.running:
             try:

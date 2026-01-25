@@ -55,7 +55,8 @@ services:
     environment:
       - HF_HUB_OFFLINE=1
       - TRANSFORMERS_OFFLINE=1
-      - PYTHONPATH=/usr/src/app
+      # [DEV] PYTHONPATH includes external repos for live editing
+      - PYTHONPATH=/usr/src/app:/usr/src/PepperBox/py3-naoqi-bridge:/usr/src/PepperPerception
     command: [ "python", "-m", "pepper_wizard.main", "--proxy-ip", "host.docker.internal", "--proxy-port", "5000" ]
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -69,6 +70,9 @@ services:
     network_mode: host
     volumes:
       - .:/usr/src/app
+      # [DEV] Mount external SDKs for live updates
+      - ../PepperBox/py3-naoqi-bridge:/usr/src/PepperBox/py3-naoqi-bridge
+      - ../PepperPerception:/usr/src/PepperPerception
     restart: on-failure
 
   # The Vision Perception Service (YOLO/Mediapipe)

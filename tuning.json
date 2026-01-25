@@ -2,17 +2,23 @@
     "adaptive": false,
     "control_mode": "native",
     "native": {
-        "fov_x": 1.0,
-        "fov_y": 0.77,
-        "fraction_max_speed": 0.10,
+        "fov_x": 0.85,
+        "fov_y": 0.65,
+        "fraction_max_speed": 0.25,
         "deadzone_x": 0.08,
         "deadzone_y": 0.10,
-        "smoothing_x": 0.15,
-        "smoothing_y": 0.75
+        "smoothing_x": 0.25,
+        "smoothing_y": 0.25,
+        "max_vel_deg_s": 150.0,
+        "max_accel_deg_s2": 800.0,
+        "gain_p": 8.0,
+        "gain_v": 0.35,
+        "vel_decay": 0.85,
+        "target_lost_timeout": 0.5
     },
     "stiffness": {
-        "min": 0.65,
-        "max": 0.65,
+        "min": 0.85,
+        "max": 0.85,
         "sensitivity": 0.0,
         "smoothing": 0.0
     },

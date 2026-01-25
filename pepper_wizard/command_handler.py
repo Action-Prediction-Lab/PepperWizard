@@ -17,8 +17,8 @@ class CommandHandler:
         self.current_mode_index = 0
         self.social_state_enabled = False # This state should ideally be managed by a dedicated social state module or the robot_client
         
-        from .control.tracking_controller import TrackingController
-        self.tracker = TrackingController(robot_client)
+        from .orchestrators.tracking_orchestrator import TrackingOrchestrator
+        self.tracker = TrackingOrchestrator(robot_client)
         self.tracker.start()
         
         from .logger import get_logger
@@ -53,6 +53,7 @@ class CommandHandler:
         elif command == 'bat':
             self.show_battery_status()
         elif command == 'gm': # Call the gaze_at_marker function from the new behaviors module
+            self.tracker.yield_control()
             gaze_at_marker(self.robot_client, marker_id=119, marker_size=0.22, search_timeout=10)
         elif command == 'q':
             self.stop_teleop()
