@@ -96,26 +96,34 @@ class RobotClient:
         self.set_tracking_mode(new_mode)
         return new_mode_index
 
+    def set_social_state(self, enabled):
+        """Idempotently sets the robot's social state."""
+        try:
+            self.client.ALAutonomousLife.setAutonomousAbilityEnabled("BackgroundMovement", enabled)
+            self.client.ALAutonomousLife.setAutonomousAbilityEnabled("BasicAwareness", enabled)
+            self.client.ALAutonomousLife.setAutonomousAbilityEnabled("ListeningMovement", enabled)
+            self.client.ALAutonomousLife.setAutonomousAbilityEnabled("SpeakingMovement", enabled)
+            self.client.ALAutonomousLife.setAutonomousAbilityEnabled("AutonomousBlinking", enabled)
+            self.client.ALFaceDetection.setTrackingEnabled(enabled)
+            self.client.ALBasicAwareness.setEnabled(enabled)
+            
+            self.logger.info("SocialStateSet", {"enabled": enabled})
+            return enabled
+        except NaoqiProxyError as e:
+            print(f"Error setting social state: {e}")
+            return None
+
+    def get_social_state(self):
+        """Returns True if social state (Basic Awareness) is active."""
+        try:
+            return self.client.ALBasicAwareness.isEnabled()
+        except Exception:
+            return False
+
     def toggle_social_state(self, social_state_enabled):
         """Toggles the robot's social state."""
         new_state = not social_state_enabled
-        try:
-            self.client.ALAutonomousLife.setAutonomousAbilityEnabled("BackgroundMovement", new_state)
-            self.client.ALAutonomousLife.setAutonomousAbilityEnabled("BasicAwareness", new_state)
-            self.client.ALAutonomousLife.setAutonomousAbilityEnabled("ListeningMovement", new_state)
-            self.client.ALAutonomousLife.setAutonomousAbilityEnabled("SpeakingMovement", new_state)
-            self.client.ALAutonomousLife.setAutonomousAbilityEnabled("AutonomousBlinking", new_state)
-            self.client.ALFaceDetection.setTrackingEnabled(new_state)
-            self.client.ALBasicAwareness.setEnabled(new_state)
-            
-            basic_awareness_state = self.client.ALBasicAwareness.isEnabled()
-            print(f"SocialState Status: {basic_awareness_state}")
-            self.logger.info("SocialStateToggled", {"enabled": new_state, "confirmed_active": basic_awareness_state})
-        except NaoqiProxyError as e:
-            print(f"Error toggling social state: {e}")
-            self.logger.error("SocialStateError", {"error": str(e)})
-            
-        return new_state
+        return self.set_social_state(new_state)
 
     def move_toward(self, x, y, theta):
         """Commands the robot to move."""

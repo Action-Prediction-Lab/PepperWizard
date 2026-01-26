@@ -15,7 +15,10 @@ class CommandHandler:
         self.teleop_thread = None
         self.tracking_modes = ["Head", "WholeBody", "Move"]
         self.current_mode_index = 0
-        self.social_state_enabled = False # This state should ideally be managed by a dedicated social state module or the robot_client
+        
+        # Synchronize with robot reality
+        self.social_state_enabled = self.robot_client.get_social_state()
+        self.suppressed_social_state = False # Flag to remember if we auto-disabled social state
         
         from .orchestrators.tracking_orchestrator import TrackingOrchestrator
         self.tracker = TrackingOrchestrator(robot_client)
@@ -39,7 +42,6 @@ class CommandHandler:
         elif command == 'r':
             self.robot_client.rest()
         elif command == 's':
-            # self.current_mode_index = self.robot_client.toggle_tracking_mode(self.current_mode_index, self.tracking_modes)
             current_mode_name = self.tracking_modes[self.current_mode_index]
             new_mode = cli.select_tracking_mode(current_mode_name)
             if new_mode:
@@ -47,12 +49,19 @@ class CommandHandler:
                 if new_mode in self.tracking_modes:
                     self.current_mode_index = self.tracking_modes.index(new_mode)
         elif command == 'a':
+            # Manual Toggle: Social State Overrides Tracking
             self.social_state_enabled = self.robot_client.toggle_social_state(self.social_state_enabled)
+            if self.social_state_enabled:
+                 # If user turns social state ON, it OVERRIDES tracking
+                 if self.tracker.active_target_label:
+                      print("!!! Social State Enabled: Deactivating Tracking Override...")
+                      self.tracker.set_target(None)
+                      self.suppressed_social_state = False
         elif command == 't':
             cli.pepper_talk_session(self.robot_client, self.config, self.verbose)
         elif command == 'bat':
             self.show_battery_status()
-        elif command == 'gm': # Call the gaze_at_marker function from the new behaviors module
+        elif command == 'gm': 
             self.tracker.yield_control()
             gaze_at_marker(self.robot_client, marker_id=119, marker_size=0.22, search_timeout=10)
         elif command == 'q':
@@ -64,18 +73,21 @@ class CommandHandler:
             target = cli.get_tracking_target()
             if target:
                 print(f"Tracking: {target}")
+                self._suppress_social()
                 self.tracker.set_target(target)
             else:
                 print("Stopping tracking.")
                 self.tracker.set_target(None)
+                self._restore_social()
         elif command.startswith('track '):
-            # Keep legacy slash support just in case
             target = command.split(' ', 1)[1]
             print(f"Tracking: {target}")
+            self._suppress_social()
             self.tracker.set_target(target)
         elif command == 'stoptrack':
             print("Stopping tracking.")
             self.tracker.set_target(None)
+            self._restore_social()
         else:
             print("Command not recognised.")
 
@@ -91,10 +103,8 @@ class CommandHandler:
         teleop_running.clear()
         
         if mode == 'Keyboard':
-            # Keyboard teleop must run in the main thread (blocking) to capture input
             controller = KeyboardTeleopController(self.robot_client, config=self.config, verbose=self.verbose)
             controller.run()
-            # After it returns, it's done
             self.teleop_thread = None
         else:
             self.teleop_thread = ZMQTeleopController(self.robot_client, config=self.config, verbose=self.verbose)
@@ -116,8 +126,27 @@ class CommandHandler:
         if battery_charge is not None:
             print(f"Battery Charge: {battery_charge}%")
 
+    def _suppress_social(self):
+        """Auto-disables social state when tracking starts."""
+        # Query robot for truth
+        real_social_state = self.robot_client.get_social_state()
+        if real_social_state:
+            print(">>> Tracking Started: Auto-suppressing Social State...")
+            self.robot_client.set_social_state(False)
+            self.social_state_enabled = False
+            self.suppressed_social_state = True
+
+    def _restore_social(self):
+        """Restores social state if it was auto-disabled."""
+        if self.suppressed_social_state:
+            print("<<< Tracking Ended: Restoring Social State...")
+            self.robot_client.set_social_state(True)
+            self.social_state_enabled = True
+            self.suppressed_social_state = False
+
     def cleanup(self):
         """Cleans up resources, like stopping the teleop thread."""
         self.stop_teleop()
+        self._restore_social()
         if self.tracker:
             self.tracker.stop()

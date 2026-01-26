@@ -172,7 +172,9 @@ class TrackingOrchestrator:
                        # Update local vars that depend on it (Stiffnes)
                        stiff_cfg = self.config.get("stiffness", {})
                        val = stiff_cfg.get("min", 0.65) if isinstance(stiff_cfg, dict) else 0.65
-                       # self.actuator.set_stiffness(val) # Optional: don't spam if not changed
+                       if not hasattr(self, '_last_stiff') or self._last_stiff != val:
+                           self.actuator.set_stiffness(val)
+                           self._last_stiff = val
                 
                 # Timeout Check (1.0s) to prevent infinite spinning
                 if self.last_measurement_time > 0 and (now - self.last_measurement_time > 1.0):

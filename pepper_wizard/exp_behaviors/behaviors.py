@@ -40,11 +40,11 @@ def gaze_at_marker(robot_client, marker_id, marker_size, search_timeout):
     print("Setting up tracker...")
     landmark_service.subscribe("Test_LandMark", 500, 0.0)
     tracker_service.unregisterAllTargets()
-    tracker_service.setEffector("None")
+    tracker_service.setEffector("None") # "Head" is not a valid effector name; "None" defaults to gaze.
     tracker_service.toggleSearch(False) # Stop any active search
     
     target_name = "LandMark"
-    tracker_service.registerTarget(target_name, [marker_size, marker_id])
+    tracker_service.registerTarget(target_name, [marker_size, [marker_id]]) # Legacy fix: nested list for IDs
     tracker_service.setMode("BodyRotation")
 
     # Initial lookAt to position the robot where the landmark is expected to be
@@ -81,27 +81,23 @@ def gaze_at_marker(robot_client, marker_id, marker_size, search_timeout):
         time_elapsed = t1 - t0
         try:
             val = memory_service.getData("LandmarkDetected", 0)
-            # val is [ TimeStamp, [ Mark_1, Mark_2, ... ], CameraPose_InRobotFrame, Camera_Id ]
-            # Mark is [ ShapeInfo, ExtraInfo ]
-            # ShapeInfo is [ 1, alpha, beta, sizeX, sizeY ]
-            # ExtraInfo is [ markID ]
             if val and len(val) > 1 and len(val[1]) > 0:
                 mark_info_list = val[1]
                 if len(mark_info_list) > 0:
-                    # Any detected landmark will trigger the behavior.
-                    # Use the first detected landmark's ID for tracking.
                     first_mark_info = mark_info_list[0]
                     if len(first_mark_info) > 1:
-                        extra_info = first_mark_info[1]
+                        extra_info = first_mark_info[1] # This is [markID]
                         if len(extra_info) > 0:
                             detected_id = extra_info[0]
                             # Now register and track the detected landmark
-                            # Use the default marker_size for registration, or refine if needed
-                            tracker_service.registerTarget(target_name, [marker_size, detected_id])
+                            tracker_service.registerTarget(target_name, [marker_size, extra_info]) # Legacy fix: extra_info is already [id]
                             tracker_service.track(target_name)
                             landmark_found = True
-                            print(f"Found Landmark ID {detected_id} - Tracking activated.")
-                            time.sleep(1)
+                            print(f"Found Landmark ID {detected_id} - Centering gaze (3s)...")
+                            # Wait for tracker to center the head
+                            time.sleep(3.0)
+                            tracker_service.stopTracker()
+                            print(f"Gaze centered on Landmark {detected_id}.")
             
         except Exception:
             pass

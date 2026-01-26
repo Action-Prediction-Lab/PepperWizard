@@ -90,3 +90,58 @@ class TrapezoidalScheduler:
         self.last_cmd += self.curr_v * dt
         
         return self.last_cmd
+
+class SCurveScheduler:
+    """
+    Jerk-Limited S-Curve Profiler (Bezier-like smoothness).
+    Limits Jerk (Derivative of Acceleration) to eliminate mechanical clicks.
+    """
+    def __init__(self, max_v: float, max_a: float, kp: float = 6.0, max_jerk: float = 1000.0):
+        self.max_v = max_v
+        self.max_a = max_a
+        self.max_jerk = max_jerk
+        self.kp = kp
+        
+        # State
+        self.curr_v = 0.0
+        self.curr_a = 0.0
+        self.last_cmd = None
+
+    def reset(self):
+        self.curr_v = 0.0
+        self.curr_a = 0.0
+        self.last_cmd = None
+
+    def update(self, target_pos: float, current_pos: float, dt: float, feed_forward_v: float = 0.0) -> float:
+        if self.last_cmd is None:
+            self.last_cmd = current_pos
+            self.curr_v = 0.0
+            self.curr_a = 0.0
+            return current_pos
+
+        # 1. Proportional Control for Desired Velocity
+        dist = target_pos - self.last_cmd
+        des_vel = (dist * self.kp) + feed_forward_v
+        des_vel = max(-self.max_v, min(self.max_v, des_vel))
+        
+        # 2. Desired Acceleration
+        # We want to change curr_v -> des_vel
+        des_accel = (des_vel - self.curr_v) / dt
+        des_accel = max(-self.max_a, min(self.max_a, des_accel))
+        
+        # 3. Limit Jerk (Ramping Acceleration)
+        # We want to change curr_a -> des_accel
+        max_da = self.max_jerk * dt
+        da = des_accel - self.curr_a
+        da = max(-max_da, min(max_da, da))
+        
+        # 4. Integrate
+        self.curr_a += da
+        self.curr_v += self.curr_a * dt
+        
+        # Safety clamp on velocity (in case overshoot happens)
+        self.curr_v = max(-self.max_v, min(self.max_v, self.curr_v))
+        
+        self.last_cmd += self.curr_v * dt
+        
+        return self.last_cmd

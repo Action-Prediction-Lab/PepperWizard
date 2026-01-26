@@ -126,21 +126,27 @@ class HeadTracker:
             curr_yaw, curr_pitch = current_state if current_state else (None, None)
             
             # Use Synced Angles if available
+            # REQUIRED FOR RAW MODE: Error is relative to the Capture Frame (meas_yaw).
+            # We must use meas_yaw to reconstruct the correct component of the Global Target.
             if meas_yaw is not None and meas_pitch is not None:
                  curr_yaw = meas_yaw
                  curr_pitch = meas_pitch
 
-            # Specific "Instant" error for the controller (optional/legacy)
+            # HYBRID - RAW MODE:
+            # - When detection exists: Use RAW BBox Error. Bypass KF (it overshoots on egomotion).
+            # - When detection missing: Pass None (Ghost Mode).
+            
             calc_err_x = None
             calc_err_y = None
+            det_ts = None
+            
             if detection:
                 center = detection.bbox.center
                 calc_err_x = -(center.x - (self.width / 2)) / (self.width / 2)
                 calc_err_y = (center.y - (self.height / 2)) / (self.height / 2)
+                det_ts = detection.timestamp
 
-            # Pass dt and errors
-            det_ts = detection.timestamp if detection else None
-            target_yaw, target_pitch, speed = self.native_ctrl.update(calc_err_x, calc_err_y, curr_yaw, curr_pitch, dt, det_ts)
+            target_yaw, target_pitch, speed = self.native_ctrl.update(calc_err_x, calc_err_y, curr_yaw, curr_pitch, dt, det_ts, current_time=time.time())
             
             if target_yaw is not None:
                 return {
