@@ -93,8 +93,9 @@ class TrapezoidalScheduler:
 
 class SCurveScheduler:
     """
-    Jerk-Limited S-Curve Profiler (Bezier-like smoothness).
+    Jerk-Limited S-Curve Profiler (Bezier-ish smoothness).
     Limits Jerk (Derivative of Acceleration) to eliminate mechanical clicks.
+    This is a prototype
     """
     def __init__(self, max_v: float, max_a: float, kp: float = 6.0, max_jerk: float = 1000.0):
         self.max_v = max_v

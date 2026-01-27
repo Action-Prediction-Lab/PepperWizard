@@ -1,7 +1,7 @@
 import time
 import threading
 
-# Import SDKs (mounted via PYTHONPATH)
+# Import SDKs 
 from clients.vision_client import VisionClient
 from clients.state_client import StateClient
 from perception_service.client import PerceptionClient
@@ -13,13 +13,15 @@ from ..perception.interpreter import PerceptionInterpreter
 
 class TrackingOrchestrator:
     """
-    The Conductor.
-    Wires up:
-    - VisionClient (Input)
-    - PerceptionClient (Processor)
-    - StateClient (Input)
-    - HeadTracker (Logic)
-    - RobotActuator (Output)
+    Manages the threaded, closed-loop visual tracking system.
+
+    This class decouples high-latency perception (running on event-driven vision callbacks) 
+    from high-frequency actuation (running on a dedicated 100Hz control thread).
+
+    Key Responsibilities:
+    1.  **Pipeline Integration**: Connects Vision, State, Perception, and Actuation clients.
+    2.  **Concurrency**: safely bridges asynchronous detections to the synchronous control loop.
+    3.  **Execution**: Drives the `HeadTracker` logic and hot-reloads tuning configurations.
     """
     def __init__(self, robot_client):
         # IO
@@ -72,7 +74,7 @@ class TrackingOrchestrator:
         val = stiff_cfg.get("min", 0.65) if isinstance(stiff_cfg, dict) else 0.65
         self.actuator.set_stiffness(val)
         
-        # Verify Deadzone (Debug)
+        # Verify Deadzone
         native_cfg = self.config.get("native", {})
         
         # Start Control Loop Thread
@@ -124,23 +126,16 @@ class TrackingOrchestrator:
             
             # Check for active tracking
             
-            # Check for active tracking
             if self.active_target_label is not None:
                 # 1. Get State
-                # We use 'now' for control loop time
                 now = time.time()
                 robot_state = self.state.get_state_at(now)
                 
-                # 2. Update Core Logic (Predict only if no new measurement, but HeadTracker handles that internally via update logic)
-                # Wait: HeadTracker.update accepts a measurement. 
-                # We need to decouple Prediction from Correction in HeadTracker?
-                # Or just pass None for measurement to trigger Predict-Only step?
-                # Currently HeadTracker.update does: Predict -> Correct(if meas).
-                # So calling it with measurement=None is valid for a Predict-Only step!
-                
-                # ISSUE: We need to feed the *latest* measurement to the tracker ONCE.
-                # If we use a shared variable for 'latest_measurement', we must consume it atomically.
-                
+                # 2. Update Core Logic (Rate Decoupling)
+                # Atomically consume the latest vision measurement to avoid double-counting.
+                # - If detection exists: Tracker performs "Predict + Correct".
+                # - If None: Tracker performs "Predict-Only" (smoothing/dead-reckoning).
+
                 detection = None
                 with self.lock:
                     if self.last_detection:
@@ -163,7 +158,7 @@ class TrackingOrchestrator:
                         self.target_lost_active = True
                     continue # Skip update/integration while lost
                 
-                # Hot-Reload (Every 1s / 100 frames)
+                # Hot-Reload tuning config (Every 1s / 100 frames)
                 if loop_counter % 100 == 0:
                     new_cfg = self._load_tuning_config()
                     if new_cfg:

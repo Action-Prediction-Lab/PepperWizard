@@ -3,8 +3,7 @@ from .base import ExponentialSmoother, AlphaBetaEstimator, TrapezoidalScheduler,
 
 class NativeController:
     """
-    Implements the 'Native' control strategy from ServoManager.
-    This version uses decomposed components for better modularity.
+    Implements the native NAOQI control strategy from ServoManager.
     """
     def __init__(self, config):
         self.config = config
@@ -31,9 +30,7 @@ class NativeController:
         self.estimator_yaw = AlphaBetaEstimator(kv, max_v * 1.5)
         self.estimator_pitch = AlphaBetaEstimator(kv, max_v * 1.5)
         
-        # REVERT: S-Curve proved unstable ("Seizure"). Back to Robust Trapezoidal.
-        # self.scheduler_yaw = SCurveScheduler(max_v, max_a, kp, max_j)
-        # self.scheduler_pitch = SCurveScheduler(max_v, max_a, kp, max_j)
+        # Use Trapezoidal scheduler.
         
         self.scheduler_yaw = TrapezoidalScheduler(max_v, max_a, kp)
         self.scheduler_pitch = TrapezoidalScheduler(max_v, max_a, kp)
@@ -55,7 +52,7 @@ class NativeController:
         kd_v = native_cfg.get("vel_decay", 0.95)
         speed = native_cfg.get("fraction_max_speed", 0.2)
         
-        # Latency Calc
+        # Calculate Latency
         latency = 0.0
         if current_time and timestamp:
             latency = current_time - timestamp
@@ -75,27 +72,21 @@ class NativeController:
             s_pitch = self.smoother_pitch.update(raw_target_pitch)
             
             # Velocity Estimation
-            # CRITICAL FIX: Use current_time (Arrival Time) instead of timestamp (Capture Time)
-            # Capture timestamps are jittery (buffering) causing massive velocity spikes.
             # System arrival time is monotonic and smoother.
             est_time = current_time if current_time else time.time()
             self.estimator_yaw.update(raw_target_yaw, est_time)
-            # self.estimator_pitch.update(raw_target_pitch, est_time) 
         else:
             # Ghost Pursuit / Propagation
-            # FIXED: Use Scheduler's smooth velocity instead of noisy estimator velocity
             if self.scheduler_yaw.curr_v is not None:
                 # Use a safe dt for propagation
                 p_dt = min(dt, 0.05)
                 # Decay the smooth velocity
                 v_yaw = self.scheduler_yaw.curr_v * kd_v
-                # v_pitch = self.scheduler_pitch.curr_v * kd_v
                 
                 # Update smoother target (Ghost Target)
                 if self.smoother_yaw.value is not None:
                      self.smoother_yaw.value += v_yaw * p_dt
-                # self.smoother_pitch.value += v_pitch * p_dt
-        
+
         # 2. Motion Scheduling
         target_pos_yaw = self.smoother_yaw.value
         target_pos_pitch = self.smoother_pitch.value
@@ -104,10 +95,7 @@ class NativeController:
             # Safety clamp for internal motion logic
             inner_dt = max(0.001, min(dt, 0.05))
             
-            # feed_yaw = self.estimator_yaw.velocity
-            # FEED-FORWARD DISABLED: Input (Sensor) Stability is too low.
-            # Injecting derivative noise causes spikes.
-            # We keep estimator running for Ghost Mode (Propagation) but don't feed it to Scheduler.
+            # Keep estimator running for Ghost Mode (Propagation) but don't feed it to Scheduler.
             feed_yaw = 0.0 
             feed_pitch = 0.0 
             

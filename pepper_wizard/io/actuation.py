@@ -6,7 +6,7 @@ class RobotActuator(Thread):
     """
     Decoupled Actuator Thread.
     Consumes commands from a queue and sends them to RobotClient.
-    Runs at a fixed frequency (e.g. 50Hz) to prevent overloading Naoqi.
+    Runs at a fixed frequency to prevent overloading Naoqi.
     """
     def __init__(self, robot_client, frequency=50.0):
         super().__init__()
@@ -31,11 +31,10 @@ class RobotActuator(Thread):
     def set_stiffness(self, val):
         """Set head stiffness directly (blocking/immediate)."""
         try:
-            # RobotClient wraps ALMotion, so use its method
             if hasattr(self.client, 'set_stiffnesses'):
                  self.client.set_stiffnesses("Head", val)
             else:
-                 # Fallback if accessed via direct proxy (unlikely here)
+                 # Fallback if accessed via direct proxy
                  self.client.ALMotion.setStiffnesses("Head", val)
         except Exception as e:
             print(f"Error setting stiffness: {e}")
@@ -64,7 +63,7 @@ class RobotActuator(Thread):
         Non-blocking send. Overwrites previous command if queue is full.
         """
         try:
-            # Empty queue first to ensure we always send freshest data
+            # Empty queue first to ensure we send fresh data
             while not self.command_queue.empty():
                 self.command_queue.get_nowait()
         except queue.Empty:
@@ -88,7 +87,7 @@ class RobotActuator(Thread):
                 if cmd['type'] == 'position':
                     speed = cmd.get('speed', 0.1)
                     # Use set_angles for smooth interpolated control
-                    # OPTIMIZATION: Send both joints in one packet to reduce latency/overhead
+                    # Send both joints in one packet to reduce latency/overhead
                     # and ensure synchronized motion start.
                     self.client.set_angles(["HeadYaw", "HeadPitch"], [cmd['yaw'], cmd['pitch']], speed)
                     
@@ -96,11 +95,6 @@ class RobotActuator(Thread):
                     # Support velocity control if needed (e.g. for PID)
                     names = ["HeadYaw", "HeadPitch"]
                     changes = [cmd['yaw'], cmd['pitch']]
-                    # setAngles with fraction? Or changeAngles? 
-                    # Actually, for velocity, we usually use move() or setStiffness. 
-                    # If this is PID velocity output, we integrate it to position in tracker anyway?
-                    # Wait, the tracker output 'velocity' type might need setAngles relative?
-                    # Original code likely didn't use this much if 'native' is position.
                     pass
                     
             except Exception as e:

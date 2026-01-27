@@ -9,7 +9,6 @@ class PerceptionClient:
         self.context = zmq.Context()
         self.socket = self.context.socket(zmq.REQ)
         self.socket.connect(service_uri)
-        # Connected (Silenced for clean CLI)
 
     def detect(self, img_bgr, target_label=None):
         """
@@ -33,7 +32,6 @@ class PerceptionClient:
                 result = self.socket.recv_json()
                 return result.get("data", {})
             else:
-                # Timeout (Silenced for clean CLI)
                 # Reset socket on timeout
                 self.socket.close()
                 self.socket = self.context.socket(zmq.REQ)

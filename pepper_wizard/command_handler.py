@@ -16,7 +16,7 @@ class CommandHandler:
         self.tracking_modes = ["Head", "WholeBody", "Move"]
         self.current_mode_index = 0
         
-        # Synchronize with robot reality
+        # Synchronize with robot social state
         self.social_state_enabled = self.robot_client.get_social_state()
         self.suppressed_social_state = False # Flag to remember if we auto-disabled social state
         
@@ -52,7 +52,7 @@ class CommandHandler:
             # Manual Toggle: Social State Overrides Tracking
             self.social_state_enabled = self.robot_client.toggle_social_state(self.social_state_enabled)
             if self.social_state_enabled:
-                 # If user turns social state ON, it OVERRIDES tracking
+                 # If operator turns social state ON, it OVERRIDES tracking
                  if self.tracker.active_target_label:
                       print("!!! Social State Enabled: Deactivating Tracking Override...")
                       self.tracker.set_target(None)

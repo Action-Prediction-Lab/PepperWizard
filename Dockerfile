@@ -1,4 +1,4 @@
-# Stage 1: Get the library from the source of truth
+# Stage 1: Get the library
 FROM jwgcurrie/pepper-box:01-26-latest AS bridge-source
 
 # Stage 2: Build the Wizard
@@ -19,7 +19,7 @@ COPY requirements.txt .
 # Install base requirements
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy and install the naoqi_proxy_client package from the Golden Image
+# Copy and install the naoqi_proxy_client package from the image
 COPY --from=bridge-source /home/pepperdev/py3-naoqi-bridge /usr/src/PepperBox/py3-naoqi-bridge
 RUN pip install /usr/src/PepperBox/py3-naoqi-bridge
 

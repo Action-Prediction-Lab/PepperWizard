@@ -15,7 +15,7 @@ class RobotClient:
         try:
             self.client = NaoqiClient(host=host, port=port)
             # Ping a service to ensure connection
-            self.client.ALTextToSpeech.getAvailableLanguages()
+            #self.client.ALTextToSpeech.getAvailableLanguages()
             self.client.ALTextToSpeech.getAvailableLanguages()
         except NaoqiProxyError as e:
             print(f"Failed to connect to PepperBox proxy at {host}:{port}")

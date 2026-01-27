@@ -64,7 +64,7 @@ services:
       - pepper-robot-env
       - dualshock-publisher
       - perception-service
-    # stdin_open and tty are crucial for the interactive command prompt
+    # stdin_open and tty are necessary for the interactive command prompt
     stdin_open: true
     tty: true
     network_mode: host

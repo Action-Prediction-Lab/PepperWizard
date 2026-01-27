@@ -40,11 +40,11 @@ def gaze_at_marker(robot_client, marker_id, marker_size, search_timeout):
     print("Setting up tracker...")
     landmark_service.subscribe("Test_LandMark", 500, 0.0)
     tracker_service.unregisterAllTargets()
-    tracker_service.setEffector("None") # "Head" is not a valid effector name; "None" defaults to gaze.
-    tracker_service.toggleSearch(False) # Stop any active search
+    tracker_service.setEffector("None") 
+    tracker_service.toggleSearch(False) 
     
     target_name = "LandMark"
-    tracker_service.registerTarget(target_name, [marker_size, [marker_id]]) # Legacy fix: nested list for IDs
+    tracker_service.registerTarget(target_name, [marker_size, [marker_id]]) 
     tracker_service.setMode("BodyRotation")
 
     # Initial lookAt to position the robot where the landmark is expected to be
@@ -57,11 +57,9 @@ def gaze_at_marker(robot_client, marker_id, marker_size, search_timeout):
 
     # --- Task Posture (Breath and LRArm_position) ---
     print("Setting task posture...")
-    # Breath - Re-enabling after proxy fix
     motion_service.setBreathConfig([["Bpm", 15.0], ["Amplitude", 0.99]])
     motion_service.setBreathEnabled("Legs", True)
 
-    # LRArm_position - Re-enabling after proxy fix
     motion_service.setExternalCollisionProtectionEnabled("RArm", False)
     motion_service.setExternalCollisionProtectionEnabled("LArm", False)
     joint_names_lr = ("RShoulderPitch", "RShoulderRoll", "RElbowYaw", "RElbowRoll", "RWristYaw",

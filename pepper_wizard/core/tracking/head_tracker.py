@@ -6,7 +6,7 @@ from ..models import Detection
 
 class HeadTracker:
     """
-    Pure Domain Logic for Head Tracking.
+    Domain Logic for Head Tracking.
     Inputs: Target BBox, Current Angles.
     Outputs: Velocity/Position Commands.
     """
@@ -127,7 +127,7 @@ class HeadTracker:
             
             # Use Synced Angles if available
             # REQUIRED FOR RAW MODE: Error is relative to the Capture Frame (meas_yaw).
-            # We must use meas_yaw to reconstruct the correct component of the Global Target.
+            # Use meas_yaw to reconstruct the correct component of the Global Target.
             if meas_yaw is not None and meas_pitch is not None:
                  curr_yaw = meas_yaw
                  curr_pitch = meas_pitch

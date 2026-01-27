@@ -46,17 +46,14 @@ class VisionReceiver(threading.Thread):
                     last_msg = socket.recv_multipart()
                 
                 if last_msg is None:
-                    # No new data, wait a bit to avoid spin lock (but poll(100) above handles waiting if empty)
+                    # No new data, wait to avoid spin lock (but poll(100) above handles waiting if empty)
                     if socket.poll(100):
                          last_msg = socket.recv_multipart()
                     else:
-                         # print("No data...")
                          continue
                 
                 msg = last_msg
-                # print(f"Got msg len: {len(msg)}") 
                     
-                # Protocol: [Topic, Header(double timestamp), Data]
                 if len(msg) == 3:
                     topic, header, img_data = msg
                     timestamp = struct.unpack('d', header)[0]
@@ -68,7 +65,6 @@ class VisionReceiver(threading.Thread):
                     continue
                         
                 # Decode
-                # Assume QVGA (320x240) YUV422 or Grey
                 w, h = 320, 240
                 img_bgr = None
                 
@@ -82,7 +78,6 @@ class VisionReceiver(threading.Thread):
                     print(f"VisionReceiver: Unknown data len {len(img_data)}")
                 
                 if img_bgr is not None and self.callback:
-                    # print(f"VisionReceiver: Processing frame TS={timestamp}")
                     self.callback(timestamp, img_bgr)
             except Exception as e:
                 print(f"VisionReceiver Error: {e}")

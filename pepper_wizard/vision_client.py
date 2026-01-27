@@ -19,10 +19,10 @@ class VisionReceiver(threading.Thread):
         self.lock = threading.Lock()
         
         
-        # Instantiate Servo Manager (The "Brain")
+        # Instantiate Servo Manager 
         self.servo_manager = ServoManager(robot_client)
         
-        # Instantiate State Buffer (The "Memory")
+        # Instantiate State Buffer 
         self.state_buffer = StateBuffer()
         
     def set_target(self, target_class):
@@ -42,7 +42,7 @@ class VisionReceiver(threading.Thread):
         self.state_buffer.start()
         self.servo_manager.start()
         
-        # Connecting (Silenced for clean CLI)
+        # Connecting
         
         context = zmq.Context()
         
@@ -60,7 +60,7 @@ class VisionReceiver(threading.Thread):
         perception_req = context.socket(zmq.REQ)
         perception_req.connect(self.perception_uri)
         
-        # Started (Silenced for clean CLI)
+        # Started 
         
         while self.running:
             try:
@@ -78,12 +78,7 @@ class VisionReceiver(threading.Thread):
                 topic, msg_data = msg
                 
                 # Extract Timestamp (first 8 bytes, double)
-                # VideoStreamer sends: [Header(8B)][ImageBytes]
-                # Actually, ZMQ multipart is: [Topic, Header, ImageBytes] 
-                # OR [Topic, PackedData] depending on my implementation in video_streamer
-                # Let's check video_streamer implementation:
-                # socket.send_multipart(["video", header, y_channel])
-                # So we expect 3 parts: Topic, Header, Data
+                # VideoStreamer sends: [Topic, Header, Data]
                 
                 if len(msg) == 3:
                     topic, header, img_data = msg
@@ -197,5 +192,4 @@ class VisionReceiver(threading.Thread):
         video_sub.close()
         perception_req.close()
         context.term()
-        # Stopped (Silenced for clean CLI)
 

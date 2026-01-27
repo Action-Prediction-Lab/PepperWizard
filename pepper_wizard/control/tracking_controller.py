@@ -7,8 +7,23 @@ from ..servo_manager import ServoManager
 
 class TrackingController:
     """
-    The BRAIN that orchestrates:
-    Vision (Receiver) -> Perception (Inference) -> State (Buffer) -> Action (ServoManager)
+    Orchestrates a closed-loop visual tracking pipeline by coordinating vision, 
+    inference, and actuation subsystems.
+
+    This class serves as the central control node that:
+    1.  **Ingests Visual Data**: Receives frames asynchronously via the `VisionReceiver`.
+    2.  **Performs Inference**: Delegates object or pose detection to the `PerceptionClient`.
+    3.  **Synchronizes State**: Correlates visual detection timestamps with historical 
+        robot kinematics (via `StateBuffer`) to compensate for perception and transmission latency.
+    4.  **Executes Control**: Dispatches measurement updates to the `ServoManager` to drive 
+        the robot toward the target.
+
+    Attributes:
+        robot_client: The interface for robot communication.
+        vision (VisionReceiver): Handles camera streams and callbacks.
+        perception (PerceptionClient): Wrapper for inference models (e.g., YOLO, Mediapipe).
+        state_buffer (StateBuffer): Stores a time-series of robot states for latency compensation.
+        servo (ServoManager): Calculates and applies motor control updates.
     """
     def __init__(self, robot_client):
         self.robot_client = robot_client
@@ -50,30 +65,26 @@ class TrackingController:
             return
 
         # 1. Perception Inference
-        # We block here briefly, that's okay, we are in a dedicated VisionThread (from VisionReceiver)
+        # Briefly block, since this is in the dedicated VisionThread (from VisionReceiver) this is not a concern. 
         results = self.perception.detect(img_bgr, self.active_target_label)
         
         if not results:
             return
 
-        # 2. Logic: Find best target in results
+        # 2. Logic: Select target (highest confidence for objects, first instance for humans)
         target_bbox = self._find_best_bbox(results, self.active_target_label, img_bgr.shape[1], img_bgr.shape[0])
         
         if target_bbox:
             # 3. Synchronization: Get Robot State at Capture Time
             robot_state = self.state_buffer.get_state_at(timestamp)
             
-            # DEBUG SYNC
             now = time.time()
             latency = now - timestamp
             if robot_state:
-                # print(f"[SYNC OK] Latency: {latency*1000:.1f}ms | BBox: {target_bbox} | State: {robot_state}")
                 pass
             else:
-                # Check why it failed
                 buf_min = self.state_buffer.buffer[0][0] if self.state_buffer.buffer else -1
                 buf_max = self.state_buffer.buffer[-1][0] if self.state_buffer.buffer else -1
-                # print(f"[SYNC FAIL] Latency: {latency*1000:.1f}ms | TS: {timestamp:.3f} | Buf: [{buf_min:.3f} - {buf_max:.3f}]")
             
             # 4. Action: Update Servo Loop
             self.servo.update_measurement(target_bbox, robot_state)

@@ -134,18 +134,14 @@ class SlashCompleter(Completer):
     def get_completions(self, document, complete_event):
         text_before_cursor = document.text_before_cursor
         
-        # We only care if there is a slash
+        # We only care if there is a slash for quick commands
         if '/' not in text_before_cursor:
             return
 
         # Get text after the LAST slash
-        # e.g. "Hello /hap" -> "hap"
-        # e.g. "Hello /" -> ""
         current_word = text_before_cursor.split('/')[-1]
 
         # If the current "word" contains spaces, it means we are past the slash token
-        # e.g. "Hello /happy " -> current_word is "happy ". 
-        # We stop completing.
         if ' ' in current_word:
             return
             
@@ -157,8 +153,6 @@ class SlashCompleter(Completer):
             check_word = word.lower() if self.ignore_case else word
             if check_word.startswith(search_prefix):
                 # Yield completion
-                # We want to replace everything including the slash
-                # "Hello /hap" -> replace "/hap" (4 chars) with "/happy"
                 yield Completion(word, start_position=-(len(current_word) + 1))
 
 def get_tracking_target():
@@ -336,7 +330,6 @@ def pepper_talk_session(robot_client, config, verbose=False):
             else:
                 continue
 
-            # Found!
             animation_tag = config.emoticon_map[emoticon]
             message_to_speak = get_verified_text(session, spell_checker, message_part, tag=animation_tag)
 

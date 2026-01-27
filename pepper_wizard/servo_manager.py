@@ -63,7 +63,6 @@ class ServoManager(threading.Thread):
         with open("motion_log.csv", "w") as f:
             f.write("timestamp,dt,raw_x,pred_x,curr_yaw,target_yaw,cmd_yaw,delta_yaw,speed_limit\n")
             
-        # Fix: Extract 'min' (or specific start value) instead of passing the whole dict
         init_stiffness = self.tuning.get("stiffness", {}).get("min", 0.6)
         if isinstance(self.tuning.get("stiffness"), (int, float)):
              init_stiffness = self.tuning["stiffness"] # Handle legacy simple config
@@ -87,11 +86,6 @@ class ServoManager(threading.Thread):
             if loop_count % 50 == 0:
                 self.load_tuning()
                 # Apply Stiffness if changed
-                # (Ideally check diff, but setting it repeatedly is low cost on NaoQi proxy?)
-                # Actually it generates bus traffic. Let's assume user changes it rarely.
-                # For now, we only set it on startup or if we detect a change? 
-                # Implementing a simple cache would be better.
-                # But for tuning session, just applying it is fine.
                 try:
                      self.robot_client.set_stiffnesses("Head", self.tuning["stiffness"])
                 except:
@@ -134,7 +128,7 @@ class ServoManager(threading.Thread):
                         curr_pitch = 0.0
                         
                         if measurement and measurement[3] is not None:
-                            # Use the angles from the exact moment of capture!
+                            # Use the angles from the exact moment of capture
                             curr_yaw, curr_pitch = measurement[3], measurement[4]
                         else:
                             # Fallback to current angles (laggy)
@@ -256,7 +250,7 @@ class ServoManager(threading.Thread):
                     # PID Actuation is handled below shared block...
                     pass 
                 
-                # 3. Actuate Head (PID Only) - Duplicate block removed in later cleanup, but for now just updating checks
+                # 3. Actuate Head (PID Only)
                 if ctrl_mode == "pid":
                     try:
                          # Log
@@ -321,9 +315,8 @@ class ServoManager(threading.Thread):
                 if body_cfg.get("enabled", False):
                     try:
                         # ... (Body Tracking Logic) ...
-                        # Keep checking control_mode for Feed Forward application?
                         # Feed Forward modifies 'yaw_change'. 
-                        # If Native, 'yaw_change' is undefined/unused!
+                        # If Native, 'yaw_change' is undefined/unused.
                         pass
                     except:
                         pass
@@ -340,7 +333,7 @@ class ServoManager(threading.Thread):
                     except Exception as e:
                         print(f"Servo Error: {e}")
                     
-                # 4. Body Tracking (The Exorcist Maneuver Prevention)
+                # 4. Body Tracking 
                 # If the head turns too far, rotate the base to align the body with the head.
                 # This keeps the head centered and allows 360 tracking.
                 body_cfg = self.tuning.get("body", {})

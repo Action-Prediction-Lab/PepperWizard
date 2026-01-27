@@ -35,8 +35,6 @@ class PIDController:
         # Deadzone Check
         if abs(error) < self.deadzone:
             # Inside deadzone
-            # We decay integral to avoid "sticking" when exiting deadzone?
-            # Or just zero error?
             error = 0.0
             # Common practice: Zero integral if error is zero to prevent windup
             self.integral = 0.0
