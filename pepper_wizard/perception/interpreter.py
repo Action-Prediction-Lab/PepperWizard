@@ -15,6 +15,9 @@ class PerceptionInterpreter:
         """
         Interprets raw perception data and returns the best matching Detection.
         """
+        if not target_label:
+            return None
+            
         # 1. Mediapipe Primacy (Person/Face)
         is_person_target = target_label.lower() in ["person", "human", "face", "man", "woman"]
         
