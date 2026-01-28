@@ -10,28 +10,26 @@ class NativeController:
         self._init_components()
         
     def _init_components(self):
-        native_cfg = self.config.get("native", {})
+        native_cfg = self.config["native"]
         scale = np.pi / 180.0
         
         # Max Limits
-        max_v = native_cfg.get("max_vel_deg_s", 120.0) * scale
-        max_a = native_cfg.get("max_accel_deg_s2", 600.0) * scale
-        max_j = native_cfg.get("max_jerk_deg_s3", 3000.0) * scale # New Config
+        max_v = native_cfg["max_vel_deg_s"] * scale
+        max_a = native_cfg["max_accel_deg_s2"] * scale
         
-        kp = native_cfg.get("gain_p", 8.0)
-        kv = native_cfg.get("gain_v", 0.1)
+        kp = native_cfg["gain_p"]
+        kv = native_cfg["gain_v"]
         
         # Smoothing
-        base_smooth = native_cfg.get("smoothing", 0.0)
+        base_smooth = native_cfg.get("smoothing", 0.0) # Optional legacy support if needed, or remove
         
-        self.smoother_yaw = ExponentialSmoother(native_cfg.get("smoothing_x", base_smooth))
-        self.smoother_pitch = ExponentialSmoother(native_cfg.get("smoothing_y", base_smooth))
+        self.smoother_yaw = ExponentialSmoother(native_cfg["smoothing_x"])
+        self.smoother_pitch = ExponentialSmoother(native_cfg["smoothing_y"])
         
-        self.estimator_yaw = AlphaBetaEstimator(kv, max_v * 1.5)
-        self.estimator_pitch = AlphaBetaEstimator(kv, max_v * 1.5)
+        self.estimator_yaw = AlphaBetaEstimator(kv, max_v * native_cfg["estimator_limit_multiplier"])
+        self.estimator_pitch = AlphaBetaEstimator(kv, max_v * native_cfg["estimator_limit_multiplier"])
         
         # Use Trapezoidal scheduler.
-        
         self.scheduler_yaw = TrapezoidalScheduler(max_v, max_a, kp)
         self.scheduler_pitch = TrapezoidalScheduler(max_v, max_a, kp)
 
@@ -44,13 +42,15 @@ class NativeController:
         self.scheduler_pitch.reset()
 
     def update(self, error_x, error_y, current_yaw, current_pitch, dt=0.01, timestamp=None, current_time=None):
-        native_cfg = self.config.get("native", {})
-        fov_x = native_cfg.get("fov_x", 1.0)
-        fov_y = native_cfg.get("fov_y", 0.8)
-        deadzone_x = native_cfg.get("deadzone_x", 0.0)
-        deadzone_y = native_cfg.get("deadzone_y", deadzone_x)
-        kd_v = native_cfg.get("vel_decay", 0.95)
-        speed = native_cfg.get("fraction_max_speed", 0.2)
+        native_cfg = self.config["native"]
+        safety_cfg = self.config["safety"]
+        
+        fov_x = native_cfg["fov_x"]
+        fov_y = native_cfg["fov_y"]
+        deadzone_x = native_cfg["deadzone_x"]
+        deadzone_y = native_cfg["deadzone_y"]
+        kd_v = native_cfg["vel_decay"]
+        speed = native_cfg["fraction_max_speed"]
         
         # Calculate Latency
         latency = 0.0
@@ -64,6 +64,7 @@ class NativeController:
             if abs(error_y) < deadzone_y: error_y = 0.0
             
             # Map vision error to joint offsets (Radians)
+            # fov_x is total FOV, so offset is error * (fov/2)
             raw_target_yaw = current_yaw + (error_x * fov_x * 0.5)
             raw_target_pitch = current_pitch + (error_y * fov_y * 0.5)
             
@@ -79,7 +80,7 @@ class NativeController:
             # Ghost Pursuit / Propagation
             if self.scheduler_yaw.curr_v is not None:
                 # Use a safe dt for propagation
-                p_dt = min(dt, 0.05)
+                p_dt = min(dt, safety_cfg["safe_dt_propagation"])
                 # Decay the smooth velocity
                 v_yaw = self.scheduler_yaw.curr_v * kd_v
                 
@@ -93,7 +94,7 @@ class NativeController:
         
         if target_pos_yaw is not None and current_yaw is not None:
             # Safety clamp for internal motion logic
-            inner_dt = max(0.001, min(dt, 0.05))
+            inner_dt = max(safety_cfg["min_dt"], min(dt, safety_cfg["max_dt"]))
             
             # Keep estimator running for Ghost Mode (Propagation) but don't feed it to Scheduler.
             feed_yaw = 0.0 

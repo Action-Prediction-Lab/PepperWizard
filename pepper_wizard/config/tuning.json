@@ -15,7 +15,8 @@
         "gain_p": 3.2,
         "gain_v": 0.05,
         "vel_decay": 0.6,
-        "target_lost_timeout": 0.5
+        "target_lost_timeout": 0.5,
+        "estimator_limit_multiplier": 1.5
     },
     "stiffness": {
         "min": 0.60,
@@ -34,7 +35,8 @@
         "kd": 0.03,
         "ki": 0.015,
         "max_output": 0.20,
-        "output_smoothing": 0.0
+        "output_smoothing": 0.0,
+        "default_speed": 0.3
     },
     "body": {
         "enabled": false,
@@ -42,5 +44,10 @@
         "kp_base": 0.2,
         "max_speed": 0.2,
         "feed_forward": true
+    },
+    "safety": {
+        "min_dt": 0.001,
+        "max_dt": 0.05,
+        "safe_dt_propagation": 0.05
     }
 }

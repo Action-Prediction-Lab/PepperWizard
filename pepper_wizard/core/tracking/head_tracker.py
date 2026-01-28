@@ -24,12 +24,12 @@ class HeadTracker:
         
     def _init_components(self):
         # Kalman Filter
-        kf_cfg = self.config.get("kalman", {})
+        kf_cfg = self.config["kalman"]
         self.kf = KalmanFilter(
-            process_noise=kf_cfg.get("process_noise", 0.1),
-            measurement_noise=kf_cfg.get("measurement_noise", 150.0)
+            process_noise=kf_cfg["process_noise"],
+            measurement_noise=kf_cfg["measurement_noise"]
         )
-        self.latency_comp = kf_cfg.get("latency_comp", 0.0)
+        self.latency_comp = kf_cfg["latency_comp"]
         
         # Strategy Switching
         self.control_mode = self.config.get("control_mode", "pid")
@@ -38,34 +38,27 @@ class HeadTracker:
             self.native_ctrl = NativeController(self.config)
         else:
             # PID Controllers
-            pid_cfg = self.config.get("pid", {})
+            pid_cfg = self.config["pid"]
             
             # Resolve initial KP
-            init_kp = pid_cfg.get("kp", 0.03)
-            if "base_kp" in pid_cfg:
-                init_kp = pid_cfg["base_kp"]
+            init_kp = pid_cfg["base_kp"] # Assume base_kp exists as per current tuning.json
                 
             self.pid_yaw = PIDController(
                 kp=init_kp,
-                kd=pid_cfg.get("kd", 0.025),
-                ki=pid_cfg.get("ki", 0.01),
-                max_output=pid_cfg.get("max_output", 0.12),
-                max_acceleration=pid_cfg.get("max_acceleration", None),
-                deadzone=pid_cfg.get("deadzone", 0.0) 
+                kd=pid_cfg["kd"],
+                ki=pid_cfg["ki"],
+                max_output=pid_cfg["max_output"],
+                max_acceleration=None, # Not present in JSON
+                deadzone=0.0 # Not present in JSON
             )
             self.pid_pitch = PIDController(
                 kp=init_kp, 
-                kd=pid_cfg.get("kd", 0.02),
-                ki=pid_cfg.get("ki", 0.01),
-                max_output=pid_cfg.get("max_output", 0.12),
-                max_acceleration=pid_cfg.get("max_acceleration", None),
-                deadzone=pid_cfg.get("deadzone", 0.0)
+                kd=pid_cfg["kd"],
+                ki=pid_cfg["ki"],
+                max_output=pid_cfg["max_output"],
+                max_acceleration=None,
+                deadzone=0.0
             )
-            
-            if "deadzone_yaw" in pid_cfg:
-                self.pid_yaw.deadzone = pid_cfg["deadzone_yaw"]
-            if "deadzone_pitch" in pid_cfg:
-                self.pid_pitch.deadzone = pid_cfg["deadzone_pitch"]
 
     def reset(self):
         """Reset all internal state to start fresh."""
@@ -96,8 +89,9 @@ class HeadTracker:
         now = time.time()
         dt = now - self.last_update_time
         # SAFETY CLAMP
-        if dt > 0.05: dt = 0.01 
-        if dt < 0.001: dt = 0.001
+        safety_cfg = self.config["safety"]
+        if dt > safety_cfg["max_dt"]: dt = safety_cfg["min_dt"] 
+        if dt < safety_cfg["min_dt"]: dt = safety_cfg["min_dt"]
         self.last_update_time = now
         
         # 1. State Estimation (Predict)
@@ -160,10 +154,10 @@ class HeadTracker:
 
         else:
             # PID VELOCITY CONTROL
-            pid_cfg = self.config.get("pid", {})
+            pid_cfg = self.config["pid"]
             if "base_kp" in pid_cfg:
-                 base_kp = pid_cfg.get("base_kp", 0.03)
-                 boost_kp = pid_cfg.get("boost_kp", 0.0)
+                 base_kp = pid_cfg["base_kp"]
+                 boost_kp = pid_cfg["boost_kp"]
                  total_error = max(abs(err_x), abs(err_y))
                  adaptive_kp = base_kp + (boost_kp * total_error)
                  self.pid_yaw.kp = adaptive_kp
@@ -176,6 +170,6 @@ class HeadTracker:
                 "type": "velocity",
                 "yaw": yaw_vel,
                 "pitch": pitch_vel,
-                "speed": 0.3,
+                "speed": pid_cfg["default_speed"],
                 "debug": {"mode": "pid"}
             }
