@@ -247,7 +247,7 @@ class VisionViewer:
                 if res:
                     with self.lock:
                         self.latest_data = res.get("data", {})
-                            else:
+            else:
                 time.sleep(0.01)
 
 if __name__ == "__main__":
