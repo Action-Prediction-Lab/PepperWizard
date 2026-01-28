@@ -15,8 +15,8 @@ class RobotClient:
         try:
             self.client = NaoqiClient(host=host, port=port)
             # Ping a service to ensure connection
+            #self.client.ALTextToSpeech.getAvailableLanguages()
             self.client.ALTextToSpeech.getAvailableLanguages()
-            print("--- PepperBox Proxy Connected ---")
         except NaoqiProxyError as e:
             print(f"Failed to connect to PepperBox proxy at {host}:{port}")
             print(f"Error: {e}")
@@ -96,26 +96,34 @@ class RobotClient:
         self.set_tracking_mode(new_mode)
         return new_mode_index
 
+    def set_social_state(self, enabled):
+        """Idempotently sets the robot's social state."""
+        try:
+            self.client.ALAutonomousLife.setAutonomousAbilityEnabled("BackgroundMovement", enabled)
+            self.client.ALAutonomousLife.setAutonomousAbilityEnabled("BasicAwareness", enabled)
+            self.client.ALAutonomousLife.setAutonomousAbilityEnabled("ListeningMovement", enabled)
+            self.client.ALAutonomousLife.setAutonomousAbilityEnabled("SpeakingMovement", enabled)
+            self.client.ALAutonomousLife.setAutonomousAbilityEnabled("AutonomousBlinking", enabled)
+            self.client.ALFaceDetection.setTrackingEnabled(enabled)
+            self.client.ALBasicAwareness.setEnabled(enabled)
+            
+            self.logger.info("SocialStateSet", {"enabled": enabled})
+            return enabled
+        except NaoqiProxyError as e:
+            print(f"Error setting social state: {e}")
+            return None
+
+    def get_social_state(self):
+        """Returns True if social state (Basic Awareness) is active."""
+        try:
+            return self.client.ALBasicAwareness.isEnabled()
+        except Exception:
+            return False
+
     def toggle_social_state(self, social_state_enabled):
         """Toggles the robot's social state."""
         new_state = not social_state_enabled
-        try:
-            self.client.ALAutonomousLife.setAutonomousAbilityEnabled("BackgroundMovement", new_state)
-            self.client.ALAutonomousLife.setAutonomousAbilityEnabled("BasicAwareness", new_state)
-            self.client.ALAutonomousLife.setAutonomousAbilityEnabled("ListeningMovement", new_state)
-            self.client.ALAutonomousLife.setAutonomousAbilityEnabled("SpeakingMovement", new_state)
-            self.client.ALAutonomousLife.setAutonomousAbilityEnabled("AutonomousBlinking", new_state)
-            self.client.ALFaceDetection.setTrackingEnabled(new_state)
-            self.client.ALBasicAwareness.setEnabled(new_state)
-            
-            basic_awareness_state = self.client.ALBasicAwareness.isEnabled()
-            print(f"SocialState Status: {basic_awareness_state}")
-            self.logger.info("SocialStateToggled", {"enabled": new_state, "confirmed_active": basic_awareness_state})
-        except NaoqiProxyError as e:
-            print(f"Error toggling social state: {e}")
-            self.logger.error("SocialStateError", {"error": str(e)})
-            
-        return new_state
+        return self.set_social_state(new_state)
 
     def move_toward(self, x, y, theta):
         """Commands the robot to move."""
@@ -139,3 +147,11 @@ class RobotClient:
     def set_stiffnesses(self, body_part, stiffness):
         """Sets the stiffness of a body part."""
         self.client.ALMotion.setStiffnesses(body_part, stiffness)
+
+    def get_angles(self, names, use_sensors=True):
+        """Gets the angles of joins."""
+        return self.client.ALMotion.getAngles(names, use_sensors)
+        
+    def set_angles(self, names, angles, fraction_max_speed):
+        """Sets the angles of joints (Absolute Position Control)."""
+        self.client.ALMotion.setAngles(names, angles, fraction_max_speed)

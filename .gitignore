@@ -28,6 +28,9 @@ dist/
 
 # Logs
 logs/
+*.csv
+*pid_log.csv
+*motion_log.csv
 
 # Private
 roadmap/

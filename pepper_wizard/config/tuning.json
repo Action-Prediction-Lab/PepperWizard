@@ -1,0 +1,53 @@
+{
+    "adaptive": false,
+    "control_mode": "native",
+    "native": {
+        "fov_x": 0.85,
+        "fov_y": 0.65,
+        "fraction_max_speed": 0.25,
+        "deadzone_x": 0.08,
+        "deadzone_y": 0.10,
+        "smoothing_x": 0.8,
+        "smoothing_y": 0.8,
+        "max_vel_deg_s": 115.0,
+        "max_accel_deg_s2": 275.0,
+        "max_jerk_deg_s3": 5000.0,
+        "gain_p": 3.2,
+        "gain_v": 0.05,
+        "vel_decay": 0.6,
+        "target_lost_timeout": 0.5,
+        "estimator_limit_multiplier": 1.5
+    },
+    "stiffness": {
+        "min": 0.60,
+        "max": 0.60,
+        "sensitivity": 0.0,
+        "smoothing": 0.0
+    },
+    "kalman": {
+        "process_noise": 0.1,
+        "measurement_noise": 150.0,
+        "latency_comp": 0.12
+    },
+    "pid": {
+        "base_kp": 0.045,
+        "boost_kp": 0.0,
+        "kd": 0.03,
+        "ki": 0.015,
+        "max_output": 0.20,
+        "output_smoothing": 0.0,
+        "default_speed": 0.3
+    },
+    "body": {
+        "enabled": false,
+        "deadzone_yaw": 0.35,
+        "kp_base": 0.2,
+        "max_speed": 0.2,
+        "feed_forward": true
+    },
+    "safety": {
+        "min_dt": 0.001,
+        "max_dt": 0.05,
+        "safe_dt_propagation": 0.05
+    }
+}

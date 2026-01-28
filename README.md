@@ -74,6 +74,12 @@ The connection to the robot (or simulator) is configured via the `robot.env` fil
     docker compose up -d --build
     ```
     This starts the background services (`pepper-robot-env` and `dualshock-publisher`).
+    
+    > **Development & Dependencies**: (for now) this project mounts **external SDKs** via Docker volumes to share code between services.
+    > *   `../PepperBox/py3-naoqi-bridge` -> `/usr/src/PepperBox/py3-naoqi-bridge`
+    > *   `../PepperPerception` -> `/usr/src/PepperPerception`
+    >
+    > These paths are added to `PYTHONPATH`, allowing `pepper-wizard` to import modules like `clients.vision_client` directly from `PepperBox`. Ensure your directory structure matches this layout (i.e., sibling directories).
 
 3.  **Run the Wizard**:
     Launch the interactive CLI:
