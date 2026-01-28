@@ -50,8 +50,9 @@ class TrackingOrchestrator:
         import json
         import os
         try:
-            if os.path.exists("tuning.json"):
-                with open("tuning.json", "r") as f:
+            config_path = os.path.join(os.path.dirname(__file__), "..", "config", "tuning.json")
+            if os.path.exists(config_path):
+                with open(config_path, "r") as f:
                     return json.load(f)
         except Exception as e:
             print(f"TrackingOrchestrator: Error loading tuning.json: {e}")

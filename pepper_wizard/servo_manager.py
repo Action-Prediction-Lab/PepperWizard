@@ -385,8 +385,9 @@ class ServoManager(threading.Thread):
         try:
             import json
             import os
-            if os.path.exists("tuning.json"):
-                with open("tuning.json", "r") as f:
+            config_path = os.path.join(os.path.dirname(__file__), "config", "tuning.json")
+            if os.path.exists(config_path):
+                with open(config_path, "r") as f:
                     config = json.load(f)
                     
                 self.tuning = config
