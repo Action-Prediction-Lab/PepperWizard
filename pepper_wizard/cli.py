@@ -64,9 +64,12 @@ class InteractiveMenu:
             layout=Layout(Window(content=FormattedTextControl(text=self.get_text))),
             key_bindings=bindings,
             mouse_support=False,
-            full_screen=False 
+            full_screen=False,
+            refresh_interval=0.5 # Refresh every 0.5s for live updates (battery/status)
         )
-        return app.run()
+        from prompt_toolkit.patch_stdout import patch_stdout
+        with patch_stdout():
+            return app.run()
 
 def show_main_menu(teleop_state):
     """
@@ -82,8 +85,12 @@ def show_main_menu(teleop_state):
             return f"Set Social State [<ansired>{state}</ansired>]"
 
     def format_teleop_label(mode):
+        is_running = teleop_state.get('teleop_running', False)
         if mode == "Joystick":
-             return f"Teleop Mode [<ansiblue>{mode}</ansiblue>]"
+             if is_running:
+                 return f"Teleop Mode [<ansigreen>{mode}</ansigreen>]"
+             else:
+                 return f"Teleop Mode [<ansired>{mode}</ansired>]"
         else:
              return f"Teleop Mode [<ansiyellow>{mode}</ansiyellow>]"
 

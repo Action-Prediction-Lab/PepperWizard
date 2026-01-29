@@ -197,6 +197,10 @@ class CommandHandler:
         else:
             print("Teleoperation is not running.")
 
+    def is_teleop_running(self):
+        """Returns True if the teleoperation thread is active."""
+        return self.teleop_thread is not None and self.teleop_thread.is_alive()
+
     def show_battery_status(self):
         """Prints the robot's battery charge."""
         battery_charge = self.robot_client.get_battery_charge()

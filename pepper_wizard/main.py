@@ -76,6 +76,9 @@ def main():
 
     try:
         while True:
+            # Update dynamic state
+            teleop_state['teleop_running'] = command_handler.is_teleop_running()
+
             # command = cli.user_input(session, "Enter Command: ")
             command = cli.show_main_menu(teleop_state)
             
