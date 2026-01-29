@@ -79,17 +79,23 @@ def show_main_menu(teleop_state):
         else:
             return f"Set Social State [<ansired>{state}</ansired>]"
 
+    def format_teleop_label(mode):
+        if mode == "Joystick":
+             return f"Teleop Mode [<ansiblue>{mode}</ansiblue>]"
+        else:
+             return f"Teleop Mode [<ansiyellow>{mode}</ansiyellow>]"
+
     # helper to update label
     def update_label(opts):
         for i, opt in enumerate(opts):
             if opt[0] == 'j':
-                opts[i] = ('j', f"{teleop_state['mode']} Teleop")
+                opts[i] = ('j', format_teleop_label(teleop_state['mode']))
             elif opt[0] == 'a':
                 opts[i] = ('a', format_social_label(teleop_state.get('social_mode', 'Disabled')))
 
     options = [
         ("t", "Unified Talk Mode"),
-        ("j", f"{current_mode} Teleop"),
+        ("j", format_teleop_label(current_mode)),
         ("a", format_social_label(teleop_state.get('social_mode', 'Disabled'))),
         ("s", "Set Tracking Mode"),
         ("w", "Wake Up Robot"),
