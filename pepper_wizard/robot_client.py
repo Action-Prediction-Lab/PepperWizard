@@ -35,7 +35,16 @@ class RobotClient:
         print("Putting robot to rest...")
         self.logger.info("Rest")
         self.client.ALMotion.rest()
+        self.client.ALMotion.rest()
         print("Robot is at rest.")
+
+    def is_awake(self):
+        """Returns True if the robot is awake."""
+        try:
+             # robotIsWakeUp returns True if awake
+             return self.client.ALMotion.robotIsWakeUp()
+        except Exception:
+             return False
 
     def talk(self, message):
         """Makes the robot say a message."""

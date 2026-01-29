@@ -29,7 +29,7 @@ class InteractiveMenu:
                 text.append(f"   {label}\n")
         
         # Add footer instruction if toggle is available for selected item
-        if self.on_toggle and (self.options[self.selected_index][0] == 'j' or self.options[self.selected_index][0] == 'a'): # Hardcoded hint for now
+        if self.on_toggle and (self.options[self.selected_index][0] in ['j', 'a', 'w']): # Hardcoded hint for now
              text.append("\n <i>[Tab] Toggle Input Mode</i>")
              
         return HTML("".join(text))
@@ -85,6 +85,12 @@ def show_main_menu(teleop_state):
         else:
              return f"Teleop Mode [<ansiyellow>{mode}</ansiyellow>]"
 
+    def format_robot_state_label(state):
+        if state == "Wake":
+            return f"Robot State [<ansigreen>{state}</ansigreen>]"
+        else:
+             return f"Robot State [<ansired>{state}</ansired>]"
+
     # helper to update label
     def update_label(opts):
         for i, opt in enumerate(opts):
@@ -92,14 +98,15 @@ def show_main_menu(teleop_state):
                 opts[i] = ('j', format_teleop_label(teleop_state['mode']))
             elif opt[0] == 'a':
                 opts[i] = ('a', format_social_label(teleop_state.get('social_mode', 'Disabled')))
+            elif opt[0] == 'w':
+                opts[i] = ('w', format_robot_state_label(teleop_state.get('robot_state', 'Rest')))
 
     options = [
         ("t", "Unified Talk Mode"),
         ("j", format_teleop_label(current_mode)),
         ("a", format_social_label(teleop_state.get('social_mode', 'Disabled'))),
         ("s", "Set Tracking Mode"),
-        ("w", "Wake Up Robot"),
-        ("r", "Rest Robot"),
+        ("w", format_robot_state_label(teleop_state.get('robot_state', 'Rest'))),
         ("gm", "Gaze at Marker"),
         ("tr", "Track Object"),
         ("bat", "Check Battery"),
@@ -121,6 +128,12 @@ def show_main_menu(teleop_state):
             current = teleop_state.get('social_mode', 'Disabled')
             new_state = "Autonomous" if current == "Disabled" else "Disabled"
             teleop_state['social_mode'] = new_state
+            update_label(opts)
+        elif key == 'w':
+            # Toggle Robot state
+            current = teleop_state.get('robot_state', 'Rest')
+            new_state = "Wake" if current == "Rest" else "Rest"
+            teleop_state['robot_state'] = new_state
             update_label(opts)
 
     menu = InteractiveMenu(
@@ -201,8 +214,7 @@ def print_help():
     print("Available commands:")
     print("  A    - Toggle Autonomous/Social State")
     print("  J    - Start Joystick Teleoperation")
-    print("  W    - Wake Up Robot")
-    print("  R    - Put Robot to Rest")
+    print("  W    - Toggle Robot Wake/Rest State")
     print("  T    - Enter Talk Mode")
     print("  Bat  - Check Battery Status")
     print("  q    - Quit Joystick Teleoperation")

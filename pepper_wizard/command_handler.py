@@ -115,9 +115,11 @@ class CommandHandler:
             else:
                  self.start_teleop(teleop_state)
         elif command == 'w':
-            self.robot_client.wake_up()
-        elif command == 'r':
-            self.robot_client.rest()
+            desired_state = teleop_state.get('robot_state', 'Rest')
+            if desired_state == "Wake":
+                 self.robot_client.wake_up()
+            else:
+                 self.robot_client.rest()
         elif command == 's':
             current_mode_name = self.tracking_modes[self.current_mode_index]
             new_mode = cli.select_tracking_mode(current_mode_name)
