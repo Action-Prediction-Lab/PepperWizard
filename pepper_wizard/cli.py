@@ -29,7 +29,7 @@ class InteractiveMenu:
                 text.append(f"   {label}\n")
         
         # Add footer instruction if toggle is available for selected item
-        if self.on_toggle and self.options[self.selected_index][0] == 'j': # Hardcoded hint for now
+        if self.on_toggle and (self.options[self.selected_index][0] == 'j' or self.options[self.selected_index][0] == 'a'): # Hardcoded hint for now
              text.append("\n <i>[Tab] Toggle Input Mode</i>")
              
         return HTML("".join(text))
@@ -73,17 +73,24 @@ def show_main_menu(teleop_state):
     """
     current_mode = teleop_state.get('mode', 'Joystick')
     
+    def format_social_label(state):
+        if state == "Autonomous":
+            return f"Set Social State [<ansigreen>{state}</ansigreen>]"
+        else:
+            return f"Set Social State [<ansired>{state}</ansired>]"
+
     # helper to update label
     def update_label(opts):
         for i, opt in enumerate(opts):
             if opt[0] == 'j':
                 opts[i] = ('j', f"{teleop_state['mode']} Teleop")
-                break
+            elif opt[0] == 'a':
+                opts[i] = ('a', format_social_label(teleop_state.get('social_mode', 'Disabled')))
 
     options = [
         ("t", "Unified Talk Mode"),
         ("j", f"{current_mode} Teleop"),
-        ("a", "Toggle Social State"),
+        ("a", format_social_label(teleop_state.get('social_mode', 'Disabled'))),
         ("s", "Set Tracking Mode"),
         ("w", "Wake Up Robot"),
         ("r", "Rest Robot"),
@@ -97,10 +104,17 @@ def show_main_menu(teleop_state):
     options = [list(o) for o in options]
 
     def on_toggle(index, opts):
-        if opts[index][0] == 'j':
-            # Toggle state
+        key = opts[index][0]
+        if key == 'j':
+            # Toggle Teleop state
             new_mode = "Keyboard" if teleop_state['mode'] == "Joystick" else "Joystick"
             teleop_state['mode'] = new_mode
+            update_label(opts)
+        elif key == 'a':
+            # Toggle Social state
+            current = teleop_state.get('social_mode', 'Disabled')
+            new_state = "Autonomous" if current == "Disabled" else "Disabled"
+            teleop_state['social_mode'] = new_state
             update_label(opts)
 
     menu = InteractiveMenu(

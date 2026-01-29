@@ -126,8 +126,11 @@ class CommandHandler:
                 if new_mode in self.tracking_modes:
                     self.current_mode_index = self.tracking_modes.index(new_mode)
         elif command == 'a':
-            # Manual Toggle: Social State Overrides Tracking
-            self.social_state_enabled = self.robot_client.toggle_social_state(self.social_state_enabled)
+            # Set Social State based on selection
+            desired_mode = teleop_state.get('social_mode', 'Disabled')
+            should_enable = (desired_mode == "Autonomous")
+            
+            self.social_state_enabled = self.robot_client.set_social_state(should_enable)
             if self.social_state_enabled:
                  # If operator turns social state ON, it OVERRIDES tracking
                  if self.tracker.active_target_label:

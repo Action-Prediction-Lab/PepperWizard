@@ -43,7 +43,12 @@ def main():
     
     # Teleop State (shared between CLI menu and CommandHandler)
     default_mode = config.teleop_config.get("default_mode", "Joystick")
-    teleop_state = {"mode": default_mode} 
+    initial_social_state = robot_client.get_social_state()
+    social_mode_label = "Autonomous" if initial_social_state else "Disabled"
+    teleop_state = {
+        "mode": default_mode,
+        "social_mode": social_mode_label
+    } 
 
     try:
         while True:
