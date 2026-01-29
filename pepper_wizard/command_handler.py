@@ -121,12 +121,8 @@ class CommandHandler:
             else:
                  self.robot_client.rest()
         elif command == 's':
-            current_mode_name = self.tracking_modes[self.current_mode_index]
-            new_mode = cli.select_tracking_mode(current_mode_name)
-            if new_mode:
-                self.robot_client.set_tracking_mode(new_mode)
-                if new_mode in self.tracking_modes:
-                    self.current_mode_index = self.tracking_modes.index(new_mode)
+            desired_mode = teleop_state.get('tracking_mode', 'Head')
+            self.robot_client.set_tracking_mode(desired_mode)
         elif command == 'a':
             # Set Social State based on selection
             desired_mode = teleop_state.get('social_mode', 'Disabled')

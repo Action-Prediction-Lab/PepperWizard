@@ -49,10 +49,13 @@ def main():
     is_awake = robot_client.is_awake()
     robot_state_label = "Wake" if is_awake else "Rest"
 
+    initial_tracking_mode = robot_client.get_tracking_mode() or "Head"
+
     teleop_state = {
         "mode": default_mode,
         "social_mode": social_mode_label,
-        "robot_state": robot_state_label
+        "robot_state": robot_state_label,
+        "tracking_mode": initial_tracking_mode
     } 
 
     try:
