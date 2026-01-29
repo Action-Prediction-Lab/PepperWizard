@@ -21,7 +21,9 @@ class InteractiveMenu:
         self.on_toggle = on_toggle # Callback(index, options) -> None
 
     def get_text(self):
-        text = [f"<b>{self.title}</b>\n"]
+        # Resolve title if callable
+        title_text = self.title() if callable(self.title) else self.title
+        text = [f"<b>{title_text}</b>\n"]
         for i, (key, label) in enumerate(self.options):
             if i == self.selected_index:
                 text.append(f" <ansicyan>&gt; {label}</ansicyan>\n")
@@ -101,6 +103,26 @@ def show_main_menu(teleop_state):
         else:
              return f"Tracking Mode [{mode}]"
 
+    def format_battery_status(charge):
+        if charge is None:
+            return "[?]"
+        
+        # 10 bars
+        bars = int(charge / 10)
+        empty = 10 - bars
+        bar_str = "|" * bars + " " * empty
+        
+        # Determine color
+        color = "ansiwhite"
+        if charge > 75:
+            color = "ansigreen"
+        elif charge > 30:
+            color = "ansiyellow"
+        else:
+            color = "ansired"
+            
+        return f"Battery: [<{color}>{bar_str}</{color}>] {charge}%"
+
     # helper to update label
     def update_label(opts):
         for i, opt in enumerate(opts):
@@ -112,6 +134,11 @@ def show_main_menu(teleop_state):
                 opts[i] = ('w', format_robot_state_label(teleop_state.get('robot_state', 'Rest')))
             elif opt[0] == 's':
                  opts[i] = ('s', format_tracking_label(teleop_state.get('tracking_mode', 'Head')))
+    
+    # Dynamic header
+    def get_title():
+        batt = format_battery_status(teleop_state.get('battery', 0))
+        return f"Select Action:             {batt}"
 
     options = [
         ("t", "Unified Talk Mode"),
@@ -121,7 +148,6 @@ def show_main_menu(teleop_state):
         ("w", format_robot_state_label(teleop_state.get('robot_state', 'Rest'))),
         ("gm", "Gaze at Marker"),
         ("tr", "Track Object"),
-        ("bat", "Check Battery"),
         ("exit", "Exit Application")
     ]
     
@@ -161,7 +187,7 @@ def show_main_menu(teleop_state):
             update_label(opts)
 
     menu = InteractiveMenu(
-        title="Select Action:",
+        title=get_title,
         options=options,
         on_toggle=on_toggle
     )
@@ -230,7 +256,6 @@ def print_help():
     print("  J    - Start Joystick Teleoperation")
     print("  W    - Toggle Robot Wake/Rest State")
     print("  T    - Enter Talk Mode")
-    print("  bat  - Check Battery Status")
     print("  q    - Quit Joystick Teleoperation")
     print("  gm   - Gaze at NAOqi marker")
     print("  help - Show this help message")

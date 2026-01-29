@@ -55,8 +55,24 @@ def main():
         "mode": default_mode,
         "social_mode": social_mode_label,
         "robot_state": robot_state_label,
-        "tracking_mode": initial_tracking_mode
+        "tracking_mode": initial_tracking_mode,
+        "battery": None
     } 
+
+    # Start battery polling thread
+    import threading
+    import time
+    def poll_battery():
+        while True:
+            try:
+                charge = robot_client.get_battery_charge()
+                teleop_state['battery'] = charge
+            except Exception as e:
+                print(f"Battery Poll Error: {e}")
+            time.sleep(10) # Poll every 10 seconds
+
+    battery_thread = threading.Thread(target=poll_battery, daemon=True)
+    battery_thread.start()
 
     try:
         while True:

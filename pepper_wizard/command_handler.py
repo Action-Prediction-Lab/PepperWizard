@@ -137,8 +137,7 @@ class CommandHandler:
                       self.suppressed_social_state = False
         elif command == 't':
             cli.pepper_talk_session(self.robot_client, self.config, self.verbose)
-        elif command == 'bat':
-            self.show_battery_status()
+
         elif command == 'gm': 
             self.tracker.yield_control()
             gaze_at_marker(self.robot_client, marker_id=119, marker_size=0.22, search_timeout=10)
