@@ -115,19 +115,20 @@ class CommandHandler:
             else:
                  self.start_teleop(teleop_state)
         elif command == 'w':
-            self.robot_client.wake_up()
-        elif command == 'r':
-            self.robot_client.rest()
+            desired_state = teleop_state.get('robot_state', 'Rest')
+            if desired_state == "Wake":
+                 self.robot_client.wake_up()
+            else:
+                 self.robot_client.rest()
         elif command == 's':
-            current_mode_name = self.tracking_modes[self.current_mode_index]
-            new_mode = cli.select_tracking_mode(current_mode_name)
-            if new_mode:
-                self.robot_client.set_tracking_mode(new_mode)
-                if new_mode in self.tracking_modes:
-                    self.current_mode_index = self.tracking_modes.index(new_mode)
+            desired_mode = teleop_state.get('tracking_mode', 'Head')
+            self.robot_client.set_tracking_mode(desired_mode)
         elif command == 'a':
-            # Manual Toggle: Social State Overrides Tracking
-            self.social_state_enabled = self.robot_client.toggle_social_state(self.social_state_enabled)
+            # Set Social State based on selection
+            desired_mode = teleop_state.get('social_mode', 'Disabled')
+            should_enable = (desired_mode == "Autonomous")
+            
+            self.social_state_enabled = self.robot_client.set_social_state(should_enable)
             if self.social_state_enabled:
                  # If operator turns social state ON, it OVERRIDES tracking
                  if self.tracker.active_target_label:
@@ -136,8 +137,7 @@ class CommandHandler:
                       self.suppressed_social_state = False
         elif command == 't':
             cli.pepper_talk_session(self.robot_client, self.config, self.verbose)
-        elif command == 'bat':
-            self.show_battery_status()
+
         elif command == 'gm': 
             self.tracker.yield_control()
             gaze_at_marker(self.robot_client, marker_id=119, marker_size=0.22, search_timeout=10)
@@ -196,6 +196,10 @@ class CommandHandler:
             self.teleop_thread = None
         else:
             print("Teleoperation is not running.")
+
+    def is_teleop_running(self):
+        """Returns True if the teleoperation thread is active."""
+        return self.teleop_thread is not None and self.teleop_thread.is_alive()
 
     def show_battery_status(self):
         """Prints the robot's battery charge."""

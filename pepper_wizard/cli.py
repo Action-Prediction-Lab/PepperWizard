@@ -21,7 +21,9 @@ class InteractiveMenu:
         self.on_toggle = on_toggle # Callback(index, options) -> None
 
     def get_text(self):
-        text = [f"<b>{self.title}</b>\n"]
+        # Resolve title if callable
+        title_text = self.title() if callable(self.title) else self.title
+        text = [f"<b>{title_text}</b>\n"]
         for i, (key, label) in enumerate(self.options):
             if i == self.selected_index:
                 text.append(f" <ansicyan>&gt; {label}</ansicyan>\n")
@@ -29,7 +31,7 @@ class InteractiveMenu:
                 text.append(f"   {label}\n")
         
         # Add footer instruction if toggle is available for selected item
-        if self.on_toggle and self.options[self.selected_index][0] == 'j': # Hardcoded hint for now
+        if self.on_toggle and (self.options[self.selected_index][0] in ['j', 'a', 'w', 's']): # Hardcoded hint for now
              text.append("\n <i>[Tab] Toggle Input Mode</i>")
              
         return HTML("".join(text))
@@ -62,9 +64,12 @@ class InteractiveMenu:
             layout=Layout(Window(content=FormattedTextControl(text=self.get_text))),
             key_bindings=bindings,
             mouse_support=False,
-            full_screen=False 
+            full_screen=False,
+            refresh_interval=0.5 # Refresh every 0.5s for live updates (battery/status)
         )
-        return app.run()
+        from prompt_toolkit.patch_stdout import patch_stdout
+        with patch_stdout():
+            return app.run()
 
 def show_main_menu(teleop_state):
     """
@@ -73,23 +78,83 @@ def show_main_menu(teleop_state):
     """
     current_mode = teleop_state.get('mode', 'Joystick')
     
+    def format_social_label(state):
+        if state == "Autonomous":
+            return f"Set Social State [<ansigreen>{state}</ansigreen>]"
+        else:
+            return f"Set Social State [<ansired>{state}</ansired>]"
+
+    def format_teleop_label(mode):
+        is_running = teleop_state.get('teleop_running', False)
+        if mode == "Joystick":
+             if is_running:
+                 return f"Teleop Mode [<ansigreen>{mode}</ansigreen>]"
+             else:
+                 return f"Teleop Mode [<ansired>{mode}</ansired>]"
+        else:
+             return f"Teleop Mode [<ansiyellow>{mode}</ansiyellow>]"
+
+    def format_robot_state_label(state):
+        if state == "Wake":
+            return f"Robot State [<ansigreen>{state}</ansigreen>]"
+        else:
+             return f"Robot State [<ansired>{state}</ansired>]"
+
+    def format_tracking_label(mode):
+        if mode == "Head":
+             return f"Tracking Mode [<ansimagenta>{mode}</ansimagenta>]"
+        elif mode == "WholeBody":
+             return f"Tracking Mode [<ansicyan>{mode}</ansicyan>]"
+        elif mode == "Move":
+             return f"Tracking Mode [<ansiyellow>{mode}</ansiyellow>]"
+        else:
+             return f"Tracking Mode [{mode}]"
+
+    def format_battery_status(charge):
+        if charge is None:
+            return "[?]"
+        
+        # 10 bars
+        bars = int(charge / 10)
+        empty = 10 - bars
+        bar_str = "|" * bars + " " * empty
+        
+        # Determine color
+        color = "ansiwhite"
+        if charge > 75:
+            color = "ansigreen"
+        elif charge > 30:
+            color = "ansiyellow"
+        else:
+            color = "ansired"
+            
+        return f"Battery: [<{color}>{bar_str}</{color}>] {charge}%"
+
     # helper to update label
     def update_label(opts):
         for i, opt in enumerate(opts):
             if opt[0] == 'j':
-                opts[i] = ('j', f"{teleop_state['mode']} Teleop")
-                break
+                opts[i] = ('j', format_teleop_label(teleop_state['mode']))
+            elif opt[0] == 'a':
+                opts[i] = ('a', format_social_label(teleop_state.get('social_mode', 'Disabled')))
+            elif opt[0] == 'w':
+                opts[i] = ('w', format_robot_state_label(teleop_state.get('robot_state', 'Rest')))
+            elif opt[0] == 's':
+                 opts[i] = ('s', format_tracking_label(teleop_state.get('tracking_mode', 'Head')))
+    
+    # Dynamic header
+    def get_title():
+        batt = format_battery_status(teleop_state.get('battery', 0))
+        return f"Select Action:             {batt}"
 
     options = [
         ("t", "Unified Talk Mode"),
-        ("j", f"{current_mode} Teleop"),
-        ("a", "Toggle Social State"),
-        ("s", "Set Tracking Mode"),
-        ("w", "Wake Up Robot"),
-        ("r", "Rest Robot"),
+        ("j", format_teleop_label(current_mode)),
+        ("a", format_social_label(teleop_state.get('social_mode', 'Disabled'))),
+        ("s", format_tracking_label(teleop_state.get('tracking_mode', 'Head'))),
+        ("w", format_robot_state_label(teleop_state.get('robot_state', 'Rest'))),
         ("gm", "Gaze at Marker"),
         ("tr", "Track Object"),
-        ("bat", "Check Battery"),
         ("exit", "Exit Application")
     ]
     
@@ -97,30 +162,45 @@ def show_main_menu(teleop_state):
     options = [list(o) for o in options]
 
     def on_toggle(index, opts):
-        if opts[index][0] == 'j':
-            # Toggle state
+        key = opts[index][0]
+        if key == 'j':
+            # Toggle Teleop state
             new_mode = "Keyboard" if teleop_state['mode'] == "Joystick" else "Joystick"
             teleop_state['mode'] = new_mode
             update_label(opts)
+        elif key == 'a':
+            # Toggle Social state
+            current = teleop_state.get('social_mode', 'Disabled')
+            new_state = "Autonomous" if current == "Disabled" else "Disabled"
+            teleop_state['social_mode'] = new_state
+            update_label(opts)
+        elif key == 'w':
+            # Toggle Robot state
+            current = teleop_state.get('robot_state', 'Rest')
+            new_state = "Wake" if current == "Rest" else "Rest"
+            teleop_state['robot_state'] = new_state
+            update_label(opts)
+        elif key == 's':
+            # Toggle Tracking Mode
+            modes = ["Head", "WholeBody", "Move"]
+            current = teleop_state.get('tracking_mode', 'Head')
+            try:
+                current_idx = modes.index(current)
+            except ValueError:
+                current_idx = 0
+            
+            new_idx = (current_idx + 1) % len(modes)
+            teleop_state['tracking_mode'] = modes[new_idx]
+            update_label(opts)
 
     menu = InteractiveMenu(
-        title="Select Action:",
+        title=get_title,
         options=options,
         on_toggle=on_toggle
     )
     return menu.run()
 
-def select_tracking_mode(current_mode):
-    """Inline menu for tracking mode."""
-    menu = InteractiveMenu(
-        title=f"Select Tracking Mode (Current: {current_mode}):",
-        options=[
-            ("Head", "Head Tracking"),
-            ("WholeBody", "Whole Body Tracking"),
-            ("Move", "Move Tracking")
-        ]
-    )
-    return menu.run()
+
 
 class SlashCompleter(Completer):
     """
@@ -181,10 +261,8 @@ def print_help():
     print("Available commands:")
     print("  A    - Toggle Autonomous/Social State")
     print("  J    - Start Joystick Teleoperation")
-    print("  W    - Wake Up Robot")
-    print("  R    - Put Robot to Rest")
+    print("  W    - Toggle Robot Wake/Rest State")
     print("  T    - Enter Talk Mode")
-    print("  Bat  - Check Battery Status")
     print("  q    - Quit Joystick Teleoperation")
     print("  gm   - Gaze at NAOqi marker")
     print("  help - Show this help message")

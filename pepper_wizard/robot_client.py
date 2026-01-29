@@ -35,7 +35,16 @@ class RobotClient:
         print("Putting robot to rest...")
         self.logger.info("Rest")
         self.client.ALMotion.rest()
+        self.client.ALMotion.rest()
         print("Robot is at rest.")
+
+    def is_awake(self):
+        """Returns True if the robot is awake."""
+        try:
+             # robotIsWakeUp returns True if awake
+             return self.client.ALMotion.robotIsWakeUp()
+        except Exception:
+             return False
 
     def talk(self, message):
         """Makes the robot say a message."""
@@ -83,11 +92,37 @@ class RobotClient:
         """Sets the robot's tracking mode directly."""
         print(f"Setting tracking mode to: {mode_name}")
         try:
+            # 1. Set ALTracker Mode (Low-level)
             self.client.ALTracker.setMode(mode_name)
             self.client.ALTracker.setMode(mode_name) # Send command twice for robustnes
             self.logger.info("TrackingModeSet", {"mode": mode_name})
+            
+            # 2. Set ALBasicAwareness Mode (High-level Social)
+            # Map standard modes to BasicAwareness modes
+            ba_mode = mode_name
+            if mode_name == "Move":
+                ba_mode = "MoveContextually"
+            elif mode_name == "WholeBody":
+                # "BodyRotation" allows rotation to face the human.
+                ba_mode = "BodyRotation"
+            
+            try:
+                self.client.ALBasicAwareness.setTrackingMode(ba_mode)
+                self.logger.info("BasicAwarenessModeSet", {"mode": ba_mode})
+            except Exception as e:
+                # BasicAwareness might not be available or proxy error
+                print(f"Warning: Could not set BasicAwareness mode: {e}")
+
         except NaoqiProxyError as e:
             print(f"Failed to set tracking mode: {e}")
+
+    def get_tracking_mode(self):
+        """Returns the current tracking mode."""
+        try:
+             return self.client.ALTracker.getMode()
+        except NaoqiProxyError as e:
+             print(f"Failed to get tracking mode: {e}")
+             return None
 
     def toggle_tracking_mode(self, current_mode_index, tracking_modes):
         """Toggles the robot's tracking mode."""

@@ -43,10 +43,42 @@ def main():
     
     # Teleop State (shared between CLI menu and CommandHandler)
     default_mode = config.teleop_config.get("default_mode", "Joystick")
-    teleop_state = {"mode": default_mode} 
+    initial_social_state = robot_client.get_social_state()
+    social_mode_label = "Autonomous" if initial_social_state else "Disabled"
+    
+    is_awake = robot_client.is_awake()
+    robot_state_label = "Wake" if is_awake else "Rest"
+
+    initial_tracking_mode = robot_client.get_tracking_mode() or "Head"
+
+    teleop_state = {
+        "mode": default_mode,
+        "social_mode": social_mode_label,
+        "robot_state": robot_state_label,
+        "tracking_mode": initial_tracking_mode,
+        "battery": None
+    } 
+
+    # Start battery polling thread
+    import threading
+    import time
+    def poll_battery():
+        while True:
+            try:
+                charge = robot_client.get_battery_charge()
+                teleop_state['battery'] = charge
+            except Exception as e:
+                print(f"Battery Poll Error: {e}")
+            time.sleep(10) # Poll every 10 seconds
+
+    battery_thread = threading.Thread(target=poll_battery, daemon=True)
+    battery_thread.start()
 
     try:
         while True:
+            # Update dynamic state
+            teleop_state['teleop_running'] = command_handler.is_teleop_running()
+
             # command = cli.user_input(session, "Enter Command: ")
             command = cli.show_main_menu(teleop_state)
             
