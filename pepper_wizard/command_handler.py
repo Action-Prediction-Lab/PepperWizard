@@ -137,6 +137,9 @@ class CommandHandler:
                       self.suppressed_social_state = False
         elif command == 't':
             cli.pepper_talk_session(self.robot_client, self.config, self.verbose)
+        elif command == 'tm':
+            from .cli import show_temperature_view
+            show_temperature_view(self.robot_client, self.config)
 
         elif command == 'gm': 
             self.tracker.yield_control()

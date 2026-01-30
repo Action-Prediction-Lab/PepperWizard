@@ -71,6 +71,17 @@ def load_keyboard_config(file_path):
         print(f"Error loading keyboard config from {file_path}: {e}")
         return {}
 
+def load_temperature_config(file_path):W
+    """Load temperature configuration from a JSON file."""
+    try:
+        with open(file_path, "r") as f:
+            temp_config = json.load(f)
+        print("Temperature config loaded successfully.")
+        return temp_config
+    except (IOError, json.JSONDecodeError) as e:
+        print(f"Error loading temperature config from {file_path}: {e}")
+        return {"thresholds": {"warm": 65, "hot": 80}} # Safe defaults
+
 class Config:
     """A class to hold the application configuration."""
     def __init__(self):
@@ -80,6 +91,7 @@ class Config:
         self.teleop_config = load_teleop_config(CONFIG_DIR / "teleop.json")
         self.dualshock_config = load_dualshock_config(CONFIG_DIR / "dualshock.json")
         self.keyboard_config = load_keyboard_config(CONFIG_DIR / "keyboard.json")
+        self.temperature_config = load_temperature_config(CONFIG_DIR / "temperature.json")
 
 def load_config():
     """Load all configurations."""

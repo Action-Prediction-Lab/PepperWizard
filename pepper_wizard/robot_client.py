@@ -190,3 +190,40 @@ class RobotClient:
     def set_angles(self, names, angles, fraction_max_speed):
         """Sets the angles of joints (Absolute Position Control)."""
         self.client.ALMotion.setAngles(names, angles, fraction_max_speed)
+
+    def get_joint_temperatures(self):
+        """
+        Fetches the temperature of all major joints.
+        Returns:
+            dict: {JointName: Temperature_in_Celsius}
+        """
+        # Define the list of keys we want to monitor
+        # These are standard ALMemory keys for Pepper
+        joint_names = [
+            "HeadYaw", "HeadPitch",
+            "LShoulderPitch", "LShoulderRoll", "LElbowYaw", "LElbowRoll", "LWristYaw",
+            "RShoulderPitch", "RShoulderRoll", "RElbowYaw", "RElbowRoll", "RWristYaw",
+            "LHipYawPitch", "LHipRoll", "LHipPitch", "LKneePitch", "LAnklePitch", "LAnkleRoll",
+            "RHipYawPitch", "RHipRoll", "RHipPitch", "RKneePitch", "RAnklePitch", "RAnkleRoll",
+            "HipRoll", "HipPitch", "KneePitch" # Common variants or Nao/Pepper differences
+        ]
+        
+        # Construct ALMemory keys: Device/SubDeviceList/[JointName]/Temperature/Sensor/Value
+        memory_keys = [f"Device/SubDeviceList/{name}/Temperature/Sensor/Value" for name in joint_names]
+        
+        try:
+            # Use getListData to fetch all in one call
+            temps = self.client.ALMemory.getListData(memory_keys)
+            
+            result = {}
+            for i, name in enumerate(joint_names):
+                val = temps[i]
+                if val is not None:
+                     result[name] = val
+            
+            return result
+        except NaoqiProxyError as e:
+            # Don't spam logs, this is a polling function
+            if self.verbose:
+                 print(f"Failed to get temperatures: {e}")
+            return {}
