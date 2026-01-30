@@ -67,14 +67,6 @@ class TrackingOrchestrator:
         # Bind Vision callback
         self.vision.start_receiving(self.on_frame_received)
         
-        # Ensure Stiffness (Ported from ServoManager)
-        stiff_cfg = self.config.get("stiffness", {})
-        val = stiff_cfg.get("min", 0.65) if isinstance(stiff_cfg, dict) else 0.65
-        # Ensure Stiffness (Ported from ServoManager)
-        stiff_cfg = self.config.get("stiffness", {})
-        val = stiff_cfg.get("min", 0.65) if isinstance(stiff_cfg, dict) else 0.65
-        self.actuator.set_stiffness(val)
-        
         # Verify Deadzone
         native_cfg = self.config.get("native", {})
         
