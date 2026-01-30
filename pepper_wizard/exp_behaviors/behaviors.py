@@ -96,6 +96,10 @@ def gaze_at_marker(robot_client, marker_id, marker_size, search_timeout):
                             time.sleep(3.0)
                             tracker_service.stopTracker()
                             print(f"Gaze centered on Landmark {detected_id}.")
+                            
+                            # Reduce stiffness to prevent overheating while holding position
+                            print("Reducing Head stiffness to 0.4 to prevent overheating...")
+                            motion_service.setStiffnesses("Head", 0.4)
             
         except Exception:
             pass
