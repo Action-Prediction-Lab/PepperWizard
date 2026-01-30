@@ -71,7 +71,7 @@ def load_keyboard_config(file_path):
         print(f"Error loading keyboard config from {file_path}: {e}")
         return {}
 
-def load_temperature_config(file_path):W
+def load_temperature_config(file_path):
     """Load temperature configuration from a JSON file."""
     try:
         with open(file_path, "r") as f:
