@@ -142,6 +142,9 @@ class CommandHandler:
             show_temperature_view(self.robot_client, self.config)
 
         elif command == 'gm': 
+            if self.is_teleop_running():
+                print("Stopping active Teleop for Marker Behavior...")
+                self.stop_teleop()
             self.tracker.yield_control()
             gaze_at_marker(self.robot_client, marker_id=119, marker_size=0.22, search_timeout=10)
         elif command == 'q':
