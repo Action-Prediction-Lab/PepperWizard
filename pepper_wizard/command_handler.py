@@ -187,6 +187,13 @@ class CommandHandler:
             controller.run()
             self.teleop_thread = None
         else:
+            # Force "Head" tracking mode to prevent "Move" conflict during Joystick control
+            print("Safeguard: Forcing Tracking Mode to 'Head' and Disabling Social State for Joystick control.")
+            
+            # 1. Force Head Mode
+            if hasattr(self.robot_client, 'set_tracking_mode'):
+                 self.robot_client.set_tracking_mode("Head")
+
             self.teleop_thread = ZMQTeleopController(self.robot_client, config=self.config, verbose=self.verbose)
             self.teleop_thread.start()
 
