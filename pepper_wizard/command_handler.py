@@ -142,6 +142,9 @@ class CommandHandler:
             show_temperature_view(self.robot_client, self.config)
 
         elif command == 'gm': 
+            if self.is_teleop_running():
+                print("Stopping active Teleop for Marker Behavior...")
+                self.stop_teleop()
             self.tracker.yield_control()
             gaze_at_marker(self.robot_client, marker_id=119, marker_size=0.22, search_timeout=10)
         elif command == 'q':
@@ -187,6 +190,13 @@ class CommandHandler:
             controller.run()
             self.teleop_thread = None
         else:
+            # Force "Head" tracking mode to prevent "Move" conflict during Joystick control
+            print("Safeguard: Forcing Tracking Mode to 'Head' and Disabling Social State for Joystick control.")
+            
+            # 1. Force Head Mode
+            if hasattr(self.robot_client, 'set_tracking_mode'):
+                 self.robot_client.set_tracking_mode("Head")
+
             self.teleop_thread = ZMQTeleopController(self.robot_client, config=self.config, verbose=self.verbose)
             self.teleop_thread.start()
 
