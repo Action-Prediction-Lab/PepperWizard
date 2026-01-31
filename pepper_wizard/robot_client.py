@@ -227,3 +227,48 @@ class RobotClient:
             if self.verbose:
                  print(f"Failed to get temperatures: {e}")
             return {}
+
+    def get_temperature_diagnosis(self):
+        """
+        Retrieves the temperature diagnosis from ALBodyTemperature.
+        Returns:
+            list: [SeverityLevel (int), FailedDevices (list<str>)]
+            Severity: 0=Negligible, 1=Serious, 2=Critical
+        """
+        try:
+            # ALBodyTemperature.getTemperatureDiagnosis returns [int, [str, str, ...]]
+            result = self.client.ALBodyTemperature.getTemperatureDiagnosis()
+            
+            if result is not None:
+                return result
+            
+            # FALLBACK: Native diagnosis failed (None). Try manual ALMemory check.
+            if self.verbose:
+                print("Native diagnosis returned None. Falling back to ALMemory sensors.")
+            
+            temps = self.get_joint_temperatures()
+            if not temps:
+                return [2, ["SensorDataMissing"]]
+            
+            # Check thresholds (defaults matching typical Naoqi limits)
+            # 80°C is the critical shutdown point for Pepper/Nao joints
+            failed_joints = []
+            max_severity = 0
+            
+            for joint, temp in temps.items():
+                if temp >= 80:
+                    failed_joints.append(joint)
+                    max_severity = 2
+                elif temp >= 65 and max_severity < 1:
+                    failed_joints.append(joint)
+                    max_severity = 1
+            
+            if max_severity > 0:
+                return [max_severity, failed_joints]
+                
+            return [0, []]
+
+        except Exception as e:
+            if self.verbose:
+                 print(f"Failed to get temperature diagnosis: {e}")
+            return [2, ["ExceptionCheckLogs"]]

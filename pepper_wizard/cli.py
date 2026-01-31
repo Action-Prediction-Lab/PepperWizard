@@ -145,7 +145,13 @@ def show_main_menu(teleop_state):
     # Dynamic header
     def get_title():
         batt = format_battery_status(teleop_state.get('battery', 0))
-        return f"Select Action:             {batt}"
+        title = f"Select Action:             {batt}"
+        
+        temp_warn = teleop_state.get('temp_warning')
+        if temp_warn:
+             title += f"\n <ansired>!!! {temp_warn} !!!</ansired>"
+        
+        return title
 
     options = [
         ("t", "Unified Talk Mode"),
