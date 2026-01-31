@@ -145,7 +145,13 @@ def show_main_menu(teleop_state):
     # Dynamic header
     def get_title():
         batt = format_battery_status(teleop_state.get('battery', 0))
-        return f"Select Action:             {batt}"
+        title = f"Select Action:             {batt}"
+        
+        temp_warn = teleop_state.get('temp_warning')
+        if temp_warn:
+             title += f"\n <ansired>!!! {temp_warn} !!!</ansired>"
+        
+        return title
 
     options = [
         ("t", "Unified Talk Mode"),
@@ -155,6 +161,7 @@ def show_main_menu(teleop_state):
         ("w", format_robot_state_label(teleop_state.get('robot_state', 'Rest'))),
         ("gm", "Gaze at Marker"),
         ("tr", "Track Object"),
+        ("tm", "Joint Temperatures"),
         ("exit", "Exit Application")
     ]
     
@@ -199,6 +206,73 @@ def show_main_menu(teleop_state):
         on_toggle=on_toggle
     )
     return menu.run()
+
+
+def show_temperature_view(robot_client, config):
+    """
+    Displays a live-updating table of joint temperatures.
+    """
+    # Load thresholds from config or use defaults
+    thresholds = config.temperature_config.get("thresholds", {"warm": 65, "hot": 80})
+    warm_th = thresholds.get("warm", 65)
+    hot_th = thresholds.get("hot", 80)
+
+    def get_content():
+        temps = robot_client.get_joint_temperatures()
+        
+        # Sort keys for consistent display
+        sorted_keys = sorted(temps.keys())
+        
+        # Build table
+        lines = []
+        lines.append("<b><ansicyan>--- Joint Temperatures (Ctrl+C to Exit) ---</ansicyan></b>\n")
+        lines.append(f"<b>{'Joint Name':<20} | {'Temp (°C)':<10} | {'Status'}</b>\n")
+        lines.append("-" * 45 + "\n")
+        
+        if not temps:
+            lines.append("<ansired>No temperature data available (is robot connected?)</ansired>\n")
+        else:
+            for joint in sorted_keys:
+                temp = temps[joint]
+                
+                # Color Coding
+                if temp < warm_th:
+                    status = "<ansigreen>OK</ansigreen>"
+                    temp_fmt = f"<ansigreen>{temp:.1f}</ansigreen>"
+                elif temp < hot_th:
+                    status = "<ansiyellow>WARM</ansiyellow>"
+                    temp_fmt = f"<ansiyellow>{temp:.1f}</ansiyellow>"
+                else:
+                    status = "<ansired>HOT!</ansired>"
+                    temp_fmt = f"<ansired><b>{temp:.1f}</b></ansired>"
+                
+                # Force string conversion just in case
+                line_str = f"{joint:<20} | {temp_fmt:<24} | {status}\n"
+                lines.append(str(line_str)) 
+                
+        return HTML("".join(lines))
+
+    # Simple loop for custom refreshing view
+    # We re-use Application for auto-refresh, similar to InteractiveMenu but with no selection
+    bindings = KeyBindings()
+    
+    @bindings.add('c-c')
+    def _(event):
+        event.app.exit()
+
+    app = Application(
+        layout=Layout(Window(content=FormattedTextControl(text=get_content))),
+        key_bindings=bindings,
+        mouse_support=False,
+        full_screen=False, # Use False to keep previous output visible above
+        refresh_interval=1.0 # Update every second
+    )
+    
+    print("\nStarting Temperature Monitor...")
+    from prompt_toolkit.patch_stdout import patch_stdout
+    with patch_stdout():
+        app.run()
+
 
 
 

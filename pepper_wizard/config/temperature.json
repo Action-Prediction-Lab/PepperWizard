@@ -1,0 +1,6 @@
+{
+    "thresholds": {
+        "warm": 65,
+        "hot": 80
+    }
+}

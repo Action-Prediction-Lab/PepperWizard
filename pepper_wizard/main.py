@@ -62,17 +62,37 @@ def main():
     # Start battery polling thread
     import threading
     import time
-    def poll_battery():
+    # Start robot status polling thread
+    import threading
+    import time
+    def poll_robot_status():
         while True:
             try:
+                # 1. Battery
                 charge = robot_client.get_battery_charge()
                 teleop_state['battery'] = charge
+                
+                # 2. Temperature Diagnosis
+                # Returns [severity, [failed_path1, failed_path2, ...]]
+                severity, failed_paths = robot_client.get_temperature_diagnosis()
+                
+                if severity > 0:
+                     # 1=Serious, 2=Critical
+                     # Extract just the joint names (last part of Device/SubDeviceList/HeadPitch/Temperature/Sensor/Value)
+                     # But ALBodyTemperature usually returns chains "Head", "Legs" or specific devices.
+                     # We will join them.
+                     devices_str = ", ".join(failed_paths) if failed_paths else "General"
+                     warning_type = "WARM" if severity == 1 else "HOT"
+                     teleop_state['temp_warning'] = f"{warning_type}: {devices_str}"
+                else:
+                     teleop_state['temp_warning'] = None
+
             except Exception as e:
-                print(f"Battery Poll Error: {e}")
+                print(f"Status Poll Error: {e}")
             time.sleep(10) # Poll every 10 seconds
 
-    battery_thread = threading.Thread(target=poll_battery, daemon=True)
-    battery_thread.start()
+    status_thread = threading.Thread(target=poll_robot_status, daemon=True)
+    status_thread.start()
 
     try:
         while True:

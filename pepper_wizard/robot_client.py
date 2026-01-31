@@ -190,3 +190,85 @@ class RobotClient:
     def set_angles(self, names, angles, fraction_max_speed):
         """Sets the angles of joints (Absolute Position Control)."""
         self.client.ALMotion.setAngles(names, angles, fraction_max_speed)
+
+    def get_joint_temperatures(self):
+        """
+        Fetches the temperature of all major joints.
+        Returns:
+            dict: {JointName: Temperature_in_Celsius}
+        """
+        # Define the list of keys we want to monitor
+        # These are standard ALMemory keys for Pepper
+        joint_names = [
+            "HeadYaw", "HeadPitch",
+            "LShoulderPitch", "LShoulderRoll", "LElbowYaw", "LElbowRoll", "LWristYaw",
+            "RShoulderPitch", "RShoulderRoll", "RElbowYaw", "RElbowRoll", "RWristYaw",
+            "LHipYawPitch", "LHipRoll", "LHipPitch", "LKneePitch", "LAnklePitch", "LAnkleRoll",
+            "RHipYawPitch", "RHipRoll", "RHipPitch", "RKneePitch", "RAnklePitch", "RAnkleRoll",
+            "HipRoll", "HipPitch", "KneePitch" # Common variants or Nao/Pepper differences
+        ]
+        
+        # Construct ALMemory keys: Device/SubDeviceList/[JointName]/Temperature/Sensor/Value
+        memory_keys = [f"Device/SubDeviceList/{name}/Temperature/Sensor/Value" for name in joint_names]
+        
+        try:
+            # Use getListData to fetch all in one call
+            temps = self.client.ALMemory.getListData(memory_keys)
+            
+            result = {}
+            for i, name in enumerate(joint_names):
+                val = temps[i]
+                if val is not None:
+                     result[name] = val
+            
+            return result
+        except NaoqiProxyError as e:
+            # Don't spam logs, this is a polling function
+            if self.verbose:
+                 print(f"Failed to get temperatures: {e}")
+            return {}
+
+    def get_temperature_diagnosis(self):
+        """
+        Retrieves the temperature diagnosis from ALBodyTemperature.
+        Returns:
+            list: [SeverityLevel (int), FailedDevices (list<str>)]
+            Severity: 0=Negligible, 1=Serious, 2=Critical
+        """
+        try:
+            # ALBodyTemperature.getTemperatureDiagnosis returns [int, [str, str, ...]]
+            result = self.client.ALBodyTemperature.getTemperatureDiagnosis()
+            
+            if result is not None:
+                return result
+            
+            # FALLBACK: Native diagnosis failed (None). Try manual ALMemory check.
+            if self.verbose:
+                print("Native diagnosis returned None. Falling back to ALMemory sensors.")
+            
+            temps = self.get_joint_temperatures()
+            if not temps:
+                return [2, ["SensorDataMissing"]]
+            
+            # Check thresholds (defaults matching typical Naoqi limits)
+            # 80°C is the critical shutdown point for Pepper/Nao joints
+            failed_joints = []
+            max_severity = 0
+            
+            for joint, temp in temps.items():
+                if temp >= 80:
+                    failed_joints.append(joint)
+                    max_severity = 2
+                elif temp >= 65 and max_severity < 1:
+                    failed_joints.append(joint)
+                    max_severity = 1
+            
+            if max_severity > 0:
+                return [max_severity, failed_joints]
+                
+            return [0, []]
+
+        except Exception as e:
+            if self.verbose:
+                 print(f"Failed to get temperature diagnosis: {e}")
+            return [2, ["ExceptionCheckLogs"]]
