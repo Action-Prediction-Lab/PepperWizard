@@ -37,7 +37,9 @@ services:
       - ../PepperBox/py3-naoqi-bridge:/home/pepperdev/py3-naoqi-bridge
     env_file:
       - robot.env
-    command: [ "/home/pepperdev/.pyenv/versions/2.7.18/bin/python", "/home/pepperdev/py3-naoqi-bridge/proprioception_service.py" ]
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: [ "/home/pepperdev/.pyenv/versions/2.7.18/bin/python", "/home/pepperdev/py3-naoqi-bridge/state_service.py" ]
 
   # The Dualshock publisher service
   dualshock-publisher:
