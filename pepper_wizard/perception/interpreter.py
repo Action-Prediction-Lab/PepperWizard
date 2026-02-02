@@ -55,6 +55,21 @@ class PerceptionInterpreter:
         
         if best_det:
             bx = best_det["bbox"]
+            
+            # Social Bias: If target is a person, bias the center towards the head (Top 20%)
+            if is_person_target:
+                x1, y1, x2, y2 = bx
+                height = y2 - y1
+                # Return a virtual BBox that is focused on the top 40% of the body
+                # The center of this box will be at target_y = y1 + 0.2 * height (the head)
+                return Detection(
+                    label=target_label,
+                    confidence=best_det["confidence"],
+                    bbox=BBox(x1, y1, x2, y1 + (0.4 * height)),
+                    timestamp=timestamp,
+                    source_angles=source_angles
+                )
+
             return Detection(
                 label=target_label,
                 confidence=best_det["confidence"],
