@@ -168,6 +168,9 @@ By default, the console output is minimal, only showing critical warnings or err
     docker compose run --rm -it pepper-wizard python3 -m pepper_wizard.main --proxy-ip host.docker.internal --proxy-port 5000 --verbose
     ```
 
+
+> PepperWizard has some visualisation and benchmarking [**tools**](pepper_wizard/tools/README.md).
+
 ## Testing
 
 To verify PepperWizard end-to-end, run the automated integration test. This simulates a full user session (connecting to the robot, speaking, moving, etc.) and verifies the log output. It is recommended to run this in simulation in case your robot accidentally runs into a wall.
