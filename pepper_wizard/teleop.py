@@ -16,7 +16,11 @@ class BaseTeleopController(threading.Thread, ABC):
         self.logger = get_logger(self.__class__.__name__)
         self.robot_client = robot_client
         self.config = config
+        self.config = config
         self.verbose = verbose
+        # Error throttling
+        self.last_error_time = 0
+        self.error_log_interval = 2.0 # Only print network errors every 2 seconds
 
     @abstractmethod
     def run(self):
@@ -45,8 +49,13 @@ class BaseTeleopController(threading.Thread, ABC):
         try:
             self.robot_client.move_toward(command_x, command_y, command_theta)
         except NaoqiProxyError as e:
-            print(f"Failed to send move command: {e}")
-            self.stop_signal() 
+            # Network drop - just log and skip this frame (stutter) instead of killing app
+            # Throttle the logs to avoid console spam
+            current_time = time.time()
+            if current_time - self.last_error_time > self.error_log_interval:
+                print(f"Failed to send move command (Network Stutter): {e}")
+                self.last_error_time = current_time
+            pass
 
     def stop_signal(self):
         """Sets the global stop event."""
@@ -55,7 +64,10 @@ class BaseTeleopController(threading.Thread, ABC):
     def stop_robot(self):
         """Stops the robot movement."""
         print("Stopping robot movement...")
-        self.robot_client.stop_move()
+        try:
+            self.robot_client.stop_move()
+        except NaoqiProxyError as e:
+            print(f"Warning: Failed to stop robot cleanly: {e}")
         self.logger.info("TeleopStopped")
 
 
@@ -90,9 +102,15 @@ class ZMQTeleopController(BaseTeleopController):
         self.logger.info("TeleopStarted")
         print(" --- Press 'q' in the main terminal and Enter to stop ---")
         
-        # Set stiffness for movement
-        self.robot_client.set_stiffnesses("Body", 1.0)
-        self.logger.info("StiffnessSet", {"body_part": "Body", "value": 1.0})
+        try:
+            # Set stiffness for movement
+            self.robot_client.set_stiffnesses("Body", 1.0)
+            self.logger.info("StiffnessSet", {"body_part": "Body", "value": 1.0})
+        except NaoqiProxyError as e:
+            print(f"Failed to set stiffness (Network Timeout): {e}")
+            self.logger.error("StiffnessFailed", {"error": str(e)})
+            self.cleanup()
+            return # Exit thread gracefully if we can't even initialize stiffness
 
         while not teleop_running.is_set():
             # Set a timeout to avoid blocking indefinitely
@@ -124,9 +142,9 @@ class ZMQTeleopController(BaseTeleopController):
                 self.logger.error("ZMQError", {"error": str(e)})
                 break
             except NaoqiProxyError as e:
-                print(f"NAOqi Proxy Error: {e}")
+                print(f"NAOqi Proxy Error (Skipping Frame): {e}")
                 self.logger.error("ProxyError", {"error": str(e)})
-                break
+                continue # Don't kill the thread, just retry next loop
         
         self.stop_robot()
         print(" --- Teleoperation Thread Finished ---")

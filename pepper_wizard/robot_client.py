@@ -13,10 +13,22 @@ class RobotClient:
         self.last_move_log_time = 0
         self.move_log_interval = 0.5 # Log max every 0.5 seconds (2Hz)
         try:
-            self.client = NaoqiClient(host=host, port=port)
-            # Ping a service to ensure connection
-            #self.client.ALTextToSpeech.getAvailableLanguages()
-            self.client.ALTextToSpeech.getAvailableLanguages()
+            # Fast Client (2.0s): For navigation and high-frequency control
+            self.client = NaoqiClient(host=host, port=port, timeout=2.0)
+            
+            # System Client (20.0s): For blocking operations (animations, text-to-speech, startup/shutdown)
+            self.system_client = NaoqiClient(host=host, port=port, timeout=20.0)
+            
+            # Ping a service to ensure connection (use system client for robustness, retry a few times)
+            import time
+            for attempt in range(3):
+                try:
+                    self.system_client.ALTextToSpeech.getAvailableLanguages()
+                    break
+                except NaoqiProxyError as e:
+                    if attempt == 2: raise # Re-raise only on last attempt
+                    print(f"Connection attempt {attempt+1}/3 failed ({e}). Retrying...")
+                    time.sleep(1.0)
         except NaoqiProxyError as e:
             print(f"Failed to connect to PepperBox proxy at {host}:{port}")
             print(f"Error: {e}")
@@ -24,18 +36,17 @@ class RobotClient:
             raise
 
     def wake_up(self):
-        """Wakes up the robot."""
-        print("Waking up robot...")
-        self.logger.info("WakeUp")
-        self.client.ALMotion.wakeUp()
+        """Wake up the robot (motors on, standing)."""
+        self.logger.info("Waking up robot...")
+        # Use system_client because wakeUp is blocking/slow
+        self.system_client.ALMotion.wakeUp()
         print("Robot is awake.")
 
     def rest(self):
-        """Puts the robot to rest."""
+        """Rest the robot (motors off, crouched)."""
         print("Putting robot to rest...")
         self.logger.info("Rest")
-        self.client.ALMotion.rest()
-        self.client.ALMotion.rest()
+        self.system_client.ALMotion.rest()
         print("Robot is at rest.")
 
     def is_awake(self):
@@ -47,14 +58,16 @@ class RobotClient:
              return False
 
     def talk(self, message):
-        """Makes the robot say a message."""
+        """Say a message using text-to-speech."""
+        if not message:
+            return
+        if self.verbose:
+            print(f"Robot saying: '{message}'")
         try:
-            if self.verbose:
-                print(f"[DEBUG] RobotClient.talk: '{message}'")
             self.logger.info("Speech", {"text": message, "type": "plain"})
-            self.client.ALTextToSpeech.say(message)
-        except NaoqiProxyError as e:
-            print(f"TTS Error: {e}")
+            self.system_client.ALTextToSpeech.say(str(message))
+        except Exception as e:
+            self.logger.error(f"Talk failed: {e}")
 
     def animated_talk(self, animation_tag, message):
         """Makes the robot say a message with an animation."""
@@ -248,7 +261,7 @@ class RobotClient:
             
             temps = self.get_joint_temperatures()
             if not temps:
-                return [2, ["SensorDataMissing"]]
+                return [0, []] # Network likely down, don't scream HOT
             
             # Check thresholds (defaults matching typical Naoqi limits)
             # 80°C is the critical shutdown point for Pepper/Nao joints
@@ -271,4 +284,4 @@ class RobotClient:
         except Exception as e:
             if self.verbose:
                  print(f"Failed to get temperature diagnosis: {e}")
-            return [2, ["ExceptionCheckLogs"]]
+            return [0, []]

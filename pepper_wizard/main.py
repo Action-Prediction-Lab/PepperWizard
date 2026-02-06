@@ -1,6 +1,7 @@
 # Main application entry point
 import argparse
 import sys
+from naoqi_proxy import NaoqiProxyError
 from . import cli
 from .config import load_config
 from .robot_client import RobotClient
@@ -100,14 +101,26 @@ def main():
             teleop_state['teleop_running'] = command_handler.is_teleop_running()
 
             # command = cli.user_input(session, "Enter Command: ")
-            command = cli.show_main_menu(teleop_state)
+            try:
+                command = cli.show_main_menu(teleop_state)
+            except KeyboardInterrupt:
+                print("\n[!] Input Cancelled.")
+                continue # Return to start of loop (refresh menu)
             
             if command is None or command == 'exit': # Handle Cancel or Exit
                 print("Shutting down PepperWizard...")
                 logger.info("ApplicationShutdown", {"reason": "UserExit"})
                 break
             
-            command_handler.handle_command(command, teleop_state)
+            try:
+                command_handler.handle_command(command, teleop_state)
+            except NaoqiProxyError as e:
+                print(f"\n[!] Command Failed (Network Error): {e}")
+                print("    Please check connection and try again.")
+                logger.warning("CommandFailed", {"command": command, "error": str(e)})
+            except Exception as e:
+                print(f"\n[!] Unexpected Error processing command: {e}")
+                logger.error("CommandError", {"command": command, "error": str(e)})
             
     except KeyboardInterrupt:
         print("\nCaught KeyboardInterrupt. Shutting down...")
