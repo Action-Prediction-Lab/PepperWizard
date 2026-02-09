@@ -112,9 +112,20 @@ class RobotClient:
             except Exception as e:
                 # BasicAwareness might not be available or proxy error
                 print(f"Warning: Could not set BasicAwareness mode: {e}")
-
         except NaoqiProxyError as e:
             print(f"Failed to set tracking mode: {e}")
+
+    def stop_tracking(self):
+        """Stops the native tracker and sets mode to Head for safety."""
+        print("Stopping native tracker...")
+        try:
+            self.client.ALTracker.stopTracker()
+            self.client.ALTracker.unregisterAllTargets()
+            # Set to a neutral mode
+            self.client.ALTracker.setMode("Head")
+            self.logger.info("TrackingStopped")
+        except NaoqiProxyError as e:
+            print(f"Failed to stop tracker: {e}")
 
     def get_tracking_mode(self):
         """Returns the current tracking mode."""

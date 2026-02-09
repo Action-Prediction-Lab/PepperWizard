@@ -91,8 +91,10 @@ class ZMQTeleopController(BaseTeleopController):
         print(" --- Press 'q' in the main terminal and Enter to stop ---")
         
         # Set stiffness for movement
+        # Set body to max, then immediately override head to be compliant (0.6)
         self.robot_client.set_stiffnesses("Body", 1.0)
-        self.logger.info("StiffnessSet", {"body_part": "Body", "value": 1.0})
+        self.robot_client.set_stiffnesses("Head", 0.6)
+        self.logger.info("StiffnessSet", {"body_part": "Body", "value": 1.0, "head_override": 0.6})
 
         while not teleop_running.is_set():
             # Set a timeout to avoid blocking indefinitely
