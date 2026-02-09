@@ -190,10 +190,8 @@ class CommandHandler:
             controller.run()
             self.teleop_thread = None
         else:
-            # Force "Head" tracking mode to prevent "Move" conflict during Joystick control
-            print("Safeguard: Forcing Tracking Mode to 'Head' and Disabling Social State for Joystick control.")
-            
-            # 1. Force Head Mode
+            # 1. Maintain Tracking Mode as 'Head' 
+            # This allows the robot to maintain eye contact via native face tracking while moving.
             if hasattr(self.robot_client, 'set_tracking_mode'):
                  self.robot_client.set_tracking_mode("Head")
 
