@@ -45,7 +45,7 @@ def gaze_at_marker(robot_client, marker_id, marker_size, search_timeout):
     
     target_name = "LandMark"
     tracker_service.registerTarget(target_name, [marker_size, [marker_id]]) 
-    tracker_service.setMode("BodyRotation")
+    tracker_service.setMode("Head")
 
     # Initial lookAt to position the robot where the landmark is expected to be
     initial_look_position = [2.27, 0.17, -0.27] 
