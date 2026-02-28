@@ -637,13 +637,20 @@ def voice_talk_session(robot_client, config, verbose=False):
                     "Press <b>[Enter]</b> to stop."
                 ))
 
-                # Wait for Enter to stop recording
-                try:
-                    session.prompt(
-                        HTML("<ansicyan>  ... </ansicyan>"),
-                    )
-                except (EOFError, KeyboardInterrupt):
-                    pass
+                # Wait for Enter to stop recording, with guard against
+                # buffered keystrokes from previous interactions
+                import time
+                rec_start = time.time()
+                while True:
+                    try:
+                        session.prompt(
+                            HTML("<ansicyan>  ... </ansicyan>"),
+                        )
+                    except (EOFError, KeyboardInterrupt):
+                        pass
+                    # Reject instant stops caused by buffered input
+                    if time.time() - rec_start >= 0.5:
+                        break
 
                 # Stop and get transcription
                 print_formatted_text(HTML(
