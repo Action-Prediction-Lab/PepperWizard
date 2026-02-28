@@ -66,6 +66,7 @@ services:
       - pepper-robot-env
       - dualshock-publisher
       - perception-service
+      - stt-service
     # stdin_open and tty are necessary for the interactive command prompt
     stdin_open: true
     tty: true
@@ -75,6 +76,21 @@ services:
       # [DEV] Mount external SDKs for live updates
       - ../PepperBox/py3-naoqi-bridge:/usr/src/PepperBox/py3-naoqi-bridge
       - ../PepperPerception:/usr/src/PepperPerception
+    restart: on-failure
+
+  # The Speech-to-Text Service (Operator Mic → Whisper)
+  stt-service:
+    build: ./stt-service
+    image: pepper-stt:latest
+    network_mode: host
+    volumes:
+      - ./stt-service:/app
+      # Mount PulseAudio socket for host microphone access
+      - /run/user/${UID:-1000}/pulse:/run/user/1000/pulse
+      - ${HOME}/.config/pulse/cookie:/root/.config/pulse/cookie:ro
+    environment:
+      - PULSE_SERVER=unix:/run/user/1000/pulse/native
+      - PYTHONUNBUFFERED=1
     restart: on-failure
 
   # The Vision Perception Service (YOLO/Mediapipe)

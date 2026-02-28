@@ -1,0 +1,7 @@
+{
+    "zmq_address": "tcp://localhost:5562",
+    "review_mode": true,
+    "model_size": "base.en",
+    "sample_rate": 16000,
+    "push_to_talk_key": "space"
+}

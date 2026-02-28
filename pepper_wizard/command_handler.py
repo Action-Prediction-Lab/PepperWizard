@@ -136,7 +136,11 @@ class CommandHandler:
                       self.tracker.set_target(None)
                       self.suppressed_social_state = False
         elif command == 't':
-            cli.pepper_talk_session(self.robot_client, self.config, self.verbose)
+            talk_mode = teleop_state.get('talk_mode', 'Voice') if teleop_state else 'Voice'
+            if talk_mode == 'Voice':
+                cli.voice_talk_session(self.robot_client, self.config, self.verbose)
+            else:
+                cli.pepper_talk_session(self.robot_client, self.config, self.verbose)
         elif command == 'tm':
             from .cli import show_temperature_view
             show_temperature_view(self.robot_client, self.config)
