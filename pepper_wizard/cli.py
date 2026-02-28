@@ -31,7 +31,7 @@ class InteractiveMenu:
                 text.append(f"   {label}\n")
         
         # Add footer instruction if toggle is available for selected item
-        if self.on_toggle and (self.options[self.selected_index][0] in ['j', 'a', 'w', 's']): # Hardcoded hint for now
+        if self.on_toggle and (self.options[self.selected_index][0] in ['t', 'j', 'a', 'w', 's']):
              text.append("\n <i>[Tab] Toggle Input Mode</i>")
              
         return HTML("".join(text))
@@ -78,6 +78,12 @@ def show_main_menu(teleop_state):
     """
     current_mode = teleop_state.get('mode', 'Joystick')
     
+    def format_talk_label(mode):
+        if mode == "Voice":
+            return f"Talk Mode [<ansigreen>{mode}</ansigreen>]"
+        else:
+            return f"Talk Mode [<ansiyellow>{mode}</ansiyellow>]"
+
     def format_social_label(state):
         if state == "Autonomous":
             return f"Set Social State [<ansigreen>{state}</ansigreen>]"
@@ -133,7 +139,9 @@ def show_main_menu(teleop_state):
     # helper to update label
     def update_label(opts):
         for i, opt in enumerate(opts):
-            if opt[0] == 'j':
+            if opt[0] == 't':
+                opts[i] = ('t', format_talk_label(teleop_state.get('talk_mode', 'Voice')))
+            elif opt[0] == 'j':
                 opts[i] = ('j', format_teleop_label(teleop_state['mode']))
             elif opt[0] == 'a':
                 opts[i] = ('a', format_social_label(teleop_state.get('social_mode', 'Disabled')))
@@ -154,7 +162,7 @@ def show_main_menu(teleop_state):
         return title
 
     options = [
-        ("t", "Unified Talk Mode"),
+        ("t", format_talk_label(teleop_state.get('talk_mode', 'Voice'))),
         ("j", format_teleop_label(current_mode)),
         ("a", format_social_label(teleop_state.get('social_mode', 'Disabled'))),
         ("s", format_tracking_label(teleop_state.get('tracking_mode', 'Head'))),
@@ -170,7 +178,13 @@ def show_main_menu(teleop_state):
 
     def on_toggle(index, opts):
         key = opts[index][0]
-        if key == 'j':
+        if key == 't':
+            # Toggle Talk mode
+            current = teleop_state.get('talk_mode', 'Voice')
+            new_mode = "Voice" if current == "Text" else "Text"
+            teleop_state['talk_mode'] = new_mode
+            update_label(opts)
+        elif key == 'j':
             # Toggle Teleop state
             new_mode = "Keyboard" if teleop_state['mode'] == "Joystick" else "Joystick"
             teleop_state['mode'] = new_mode
@@ -554,3 +568,191 @@ def pepper_talk_session(robot_client, config, verbose=False):
             if message_to_speak:
                 robot_client.talk(message_to_speak)
                 print_formatted_text(HTML(f"<ansiyellow>[Pepper] Said:</ansiyellow> \"{message_to_speak}\""))
+
+
+def voice_talk_session(robot_client, config, verbose=False):
+    """Handles an interactive Voice-to-TTS session using the STT service."""
+    from .stt_client import STTClient
+    from .logger import get_logger
+
+    logger = get_logger("VoiceTalk")
+    stt_config = config.stt_config
+    review_mode = stt_config.get("review_mode", True)
+
+    # Connect to STT service
+    stt_client = STTClient(stt_config.get("zmq_address", "tcp://localhost:5562"))
+    if not stt_client.ping():
+        print_formatted_text(HTML(
+            "<ansired>Error: Could not connect to the STT service.</ansired>\n"
+            "<ansired>Is stt-service running? (docker compose up stt-service)</ansired>"
+        ))
+        stt_client.close()
+        return
+
+    review_label = "<ansigreen>ON</ansigreen>" if review_mode else "<ansired>OFF</ansired>"
+    print_formatted_text(HTML(
+        f" --- Entering Voice Talk Mode ---\n"
+        f" Review mode: {review_label}\n"
+        f" Press <b>[Space]</b> to start recording, <b>[Enter]</b> to stop.\n"
+        f" Type <b>/review</b> to toggle review mode, <b>/q</b> to exit.\n"
+        f" ---"
+    ))
+
+    session = PromptSession()
+
+    try:
+        while True:
+            # Prompt for commands
+            bindings = KeyBindings()
+
+            @bindings.add("space")
+            def _on_space(event):
+                """Start recording if buffer is empty, otherwise insert a space."""
+                if not event.current_buffer.text.strip():
+                    event.current_buffer.text = ""
+                    event.app.exit(result="__record__")
+                else:
+                    event.current_buffer.insert_text(" ")
+
+            try:
+                mode_label = "review" if review_mode else "direct"
+                line = session.prompt(
+                    HTML(f"<b><ansimagenta>Voice [{mode_label}]:</ansimagenta></b> "),
+                    key_bindings=bindings,
+                )
+            except (EOFError, KeyboardInterrupt):
+                break
+
+            # Check for recording trigger FIRST
+            if line == "__record__":
+                started = stt_client.start_recording()
+                if not started:
+                    print_formatted_text(HTML(
+                        "<ansired>Failed to start recording.</ansired>"
+                    ))
+                    continue
+
+                print_formatted_text(HTML(
+                    " <b><ansicyan>Recording...</ansicyan></b> "
+                    "Press <b>[Enter]</b> to stop."
+                ))
+
+                # Wait for Enter to stop recording, with guard against
+                # buffered keystrokes from previous interactions
+                import time
+                rec_start = time.time()
+                while True:
+                    try:
+                        session.prompt(
+                            HTML("<ansicyan>  ... </ansicyan>"),
+                        )
+                    except (EOFError, KeyboardInterrupt):
+                        pass
+                    # Reject instant stops caused by buffered input
+                    if time.time() - rec_start >= 0.5:
+                        break
+
+                # Stop and get transcription
+                print_formatted_text(HTML(
+                    " <i>Transcribing...</i>"
+                ))
+                result = stt_client.stop_and_transcribe()
+                transcription = result.get("transcription", "").strip()
+                duration = result.get("duration", 0.0)
+                error = result.get("error")
+
+                if error:
+                    print_formatted_text(HTML(
+                        f"<ansired>STT Error: {error}</ansired>"
+                    ))
+                    continue
+
+                if not transcription:
+                    print_formatted_text(HTML(
+                        "<ansiyellow>No speech detected.</ansiyellow>"
+                    ))
+                    continue
+
+                logger.info("VoiceTalkTranscribed", {
+                    "transcription": transcription,
+                    "duration": duration,
+                })
+
+                if review_mode:
+                    # Show transcription for review
+                    print_formatted_text(HTML(
+                        f" <b>Heard:</b> \"{transcription}\" "
+                        f"<i>({duration:.1f}s)</i>"
+                    ))
+                    try:
+                        review_bindings = KeyBindings()
+
+                        @review_bindings.add("escape")
+                        def _on_escape(event):
+                            event.current_buffer.text = ""
+                            event.app.exit(result="")
+
+                        edited = session.prompt(
+                            HTML("<b><ansigreen>Confirm [Enter] / Edit / [Esc] Discard:</ansigreen></b> "),
+                            default=transcription,
+                            key_bindings=review_bindings,
+                        )
+                    except (EOFError, KeyboardInterrupt):
+                        print(" Discarded.")
+                        continue
+
+                    if not edited.strip():
+                        print(" Discarded.")
+                        continue
+
+                    final_text = edited.strip()
+                else:
+                    # Direct mode — send immediately
+                    final_text = transcription
+
+                robot_client.talk(final_text)
+                print_formatted_text(HTML(
+                    f"<ansiyellow>[Pepper] Said:</ansiyellow> \"{final_text}\""
+                ))
+                logger.info("VoiceTalkSpoken", {
+                    "text": final_text,
+                    "was_edited": (final_text != transcription),
+                    "original_transcription": transcription,
+                    "duration": duration,
+                })
+                continue
+
+            # Handle slash commands and typed text
+            if line is not None and line.strip():
+                cmd = line.strip().lower()
+                if cmd == "/q":
+                    break
+                elif cmd == "/review":
+                    review_mode = not review_mode
+                    state_label = "ON" if review_mode else "OFF"
+                    print_formatted_text(HTML(
+                        f" Review mode: <b>{state_label}</b>"
+                    ))
+                    continue
+                elif cmd == "/help":
+                    print_formatted_text(HTML(
+                        " <b>Voice Talk Mode Help</b>\n"
+                        "  Press <b>[Space]</b> — Start recording\n"
+                        "  Press <b>[Enter]</b> — Stop and transcribe\n"
+                        "  <b>/review</b> — Toggle review mode\n"
+                        "  <b>/q</b> — Exit voice talk mode"
+                    ))
+                    continue
+                else:
+                    # Treat typed text as direct speech (fallback to keyboard)
+                    robot_client.talk(line.strip())
+                    print_formatted_text(HTML(
+                        f"<ansiyellow>[Pepper] Said:</ansiyellow> \"{line.strip()}\""
+                    ))
+                    logger.info("VoiceTalkTyped", {"text": line.strip()})
+                    continue
+
+    finally:
+        stt_client.close()
+
+    print(" --- Exiting Voice Talk Mode ---")

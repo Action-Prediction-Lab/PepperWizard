@@ -82,6 +82,24 @@ def load_temperature_config(file_path):
         print(f"Error loading temperature config from {file_path}: {e}")
         return {"thresholds": {"warm": 65, "hot": 80}} # Safe defaults
 
+def load_stt_config(file_path):
+    """Loads speech-to-text configuration from a JSON file."""
+    defaults = {
+        "zmq_address": "tcp://localhost:5562",
+        "review_mode": True,
+        "model_size": "base.en",
+        "sample_rate": 16000,
+        "push_to_talk_key": "space",
+    }
+    try:
+        with open(file_path, "r") as f:
+            stt_config = json.load(f)
+        print("STT config loaded successfully.")
+        return stt_config
+    except (IOError, json.JSONDecodeError) as e:
+        print(f"Error loading STT config from {file_path}: {e}")
+        return defaults
+
 class Config:
     """A class to hold the application configuration."""
     def __init__(self):
@@ -92,6 +110,7 @@ class Config:
         self.dualshock_config = load_dualshock_config(CONFIG_DIR / "dualshock.json")
         self.keyboard_config = load_keyboard_config(CONFIG_DIR / "keyboard.json")
         self.temperature_config = load_temperature_config(CONFIG_DIR / "temperature.json")
+        self.stt_config = load_stt_config(CONFIG_DIR / "stt.json")
 
 def load_config():
     """Load all configurations."""

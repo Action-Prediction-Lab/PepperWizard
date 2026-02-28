@@ -9,7 +9,7 @@ PepperWizard is a Python-based application for teleoperating the Pepper robot. I
 *   **Modern Bridge Architecture:** Integrates with `PepperBox` to wrap the legacy Python 2.7 / NAOqi SDK in a Docker container, allowing you to write modern Python 3 code.
 *   **Fully Dockerised:** Zero-configuration setup suitable for rapid deployment and reproducibility in HRI labs.
 *   **Joystick Teleoperation:** Control the robot's movement in real-time using a DualShock controller via [Dualshock-ZMQ](https://github.com/Action-Prediction-Lab/Dualshock-ZMQ).
-*   **Intelligent Talk Mode:** A unified interface for speech and animation, featuring **slash-command autocomplete**, **spellcheck**, and **emoticon animation triggers**.
+*   **Talk Modes:** A unified interface for speech and animation, featuring **voice input** via push-to-talk with live transcription, **slash-command autocomplete**, **spellcheck**, and **emoticon animation triggers**.
 *   **Experimental Logging:** Timestamped JSONL logging of all interactions.
 *   **Interactive TUI:** A minimal menu-driven terminal interface using `prompt_toolkit`.
 *   **Social State Control:** Toggle the robot's autonomous social behaviors.
@@ -17,11 +17,12 @@ PepperWizard is a Python-based application for teleoperating the Pepper robot. I
 
 ## Architecture
 
-The PepperWizard system is composed of three main services orchestrated by `docker-compose.yml`:
+The PepperWizard system is composed of four main services orchestrated by `docker-compose.yml`:
 
 1.  **`pepper-robot-env`**: This service runs a Python 2.7 environment and a "shim server" to act as a bridge to the Pepper robot's native NAOqi OS. This is necessary because the robot's core libraries use Python 2.7.
 2.  **`dualshock-publisher`**: This service reads input from a connected DualShock controller (`/dev/input`) and publishes the data to a ZeroMQ message queue.
-3.  **`pepper-wizard`**: This is the main application, written in Python 3. It subscribes to the `dualshock-publisher`'s ZeroMQ messages for teleoperation and provides the interactive CLI for the user. It communicates with the `pepper-robot-env` service to send commands to the robot.
+3.  **`stt-service`**: A lightweight speech-to-text service that captures audio from the host microphone and transcribes it using a configurable Whisper model (CPU). Communicates via ZeroMQ REQ/REP.
+4.  **`pepper-wizard`**: A CLI-based middleware, written in Python 3, in which orchestration is driven by a human operator while autonomous features augment control of the Pepper robot. These include human tracking (mediapipe), object tracking (YOLO), speech-to-text (Whisper), (and others). Communicates with all other services via ZeroMQ.
 
 The `pepper-wizard` application itself is structured as follows:
 
@@ -100,20 +101,24 @@ The application uses an interactive selection menu.
 
 ```text
 Select Action:
- > Unified Talk Mode
-   Joystick Teleop
-   Toggle Social State
-   Set Tracking Mode
-   Wake Up Robot
-   Rest Robot
+ > Talk Mode [Voice]
+   Teleop Mode [Joystick]
+   Set Social State [Disabled]
+   Tracking Mode [Head]
+   Robot State [Wake]
    Gaze at Marker
-   Check Battery
+   Track Object
+   Joint Temperatures
    Exit Application
 ```
 
-### Unified Talk Mode
+### Talk Mode
 
-When in Unified Talk Mode, you can speak sentences and trigger animations:
+Talk Mode has two interfaces, toggled with `[Tab]` in the main menu:
+
+*   **Voice** — Push-to-talk speech-to-text. Press `[Space]` to start recording, `[Enter]` to stop. Transcriptions are shown for review by default; press `[Enter]` to confirm, edit inline, or `[Esc]` to discard. Toggle review mode with `/review`.
+*   **Text** — Type sentences directly, with spellcheck, emoticon triggers, and slash-command autocomplete.
+
 
 
 ### Advanced Features
