@@ -42,8 +42,8 @@ def plot_logs(filename="pid_log.csv"):
 
     # Subplot 1: Position Tracking
     ax1.set_title("Tracking Performance: Target vs Estimate")
-    ax1.plot(times, raw_xs, 'ro', markersize=2, label="Raw Detection (Vision 8Hz)", alpha=0.5)
-    ax1.plot(times, pred_xs, 'b-', label="Kalman Estimate (Servo 50Hz)", linewidth=1.5)
+    ax1.plot(times, raw_xs, 'ro', markersize=2, label="Raw Detection (Vision ~10-15Hz)", alpha=0.5)
+    ax1.plot(times, pred_xs, 'b-', label="Kalman Estimate (Control 100Hz)", linewidth=1.5)
     ax1.set_ylabel("Pixel X Coordinate")
     ax1.legend()
     ax1.grid(True)

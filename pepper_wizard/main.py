@@ -59,9 +59,6 @@ def main():
         "battery": None
     } 
 
-    # Start battery polling thread
-    import threading
-    import time
     # Start robot status polling thread
     import threading
     import time

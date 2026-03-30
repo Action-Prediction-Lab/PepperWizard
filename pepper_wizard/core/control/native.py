@@ -21,7 +21,7 @@ class NativeController:
         kv = native_cfg["gain_v"]
         
         # Smoothing
-        base_smooth = native_cfg.get("smoothing", 0.0) # Optional legacy support if needed, or remove
+        base_smooth = native_cfg.get("smoothing", 0.0)
         
         self.smoother_yaw = ExponentialSmoother(native_cfg["smoothing_x"])
         self.smoother_pitch = ExponentialSmoother(native_cfg["smoothing_y"])

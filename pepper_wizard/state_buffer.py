@@ -6,6 +6,11 @@ import collections
 import bisect
 
 class StateBuffer(threading.Thread):
+    """
+    Threaded ZMQ subscriber that maintains a time-indexed ring buffer of robot
+    head joint states (yaw, pitch). Supports temporal queries via linear
+    interpolation for latency-compensated state lookups.
+    """
     def __init__(self, zmq_addr="tcp://localhost:5560", maxlen=200):
         super().__init__()
         self.zmq_addr = zmq_addr
