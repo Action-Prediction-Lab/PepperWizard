@@ -3,7 +3,6 @@ import logging
 class PIDController:
     """
     A simple PID Controller for the robot head servo.
-    Separated from VisionClient to allow independent 50Hz updates.
     """
     def __init__(self, kp=0.1, kd=0.02, ki=0.0, deadzone=0.05, max_output=0.1):
         self.kp = kp

@@ -21,7 +21,7 @@ class KalmanFilter:
         ])
         
         # Process Noise Covariance (Q)
-        # Assume noise in acceleration (jerk)
+        # Models uncertainty in object motion
         self.Q = np.eye(4) * process_noise
         
         # Measurement Noise Covariance (R)
