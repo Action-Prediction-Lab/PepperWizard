@@ -76,7 +76,7 @@ The connection to the robot (or simulator) is configured via the `robot.env` fil
     ```
     This starts the background services (`pepper-robot-env` and `dualshock-publisher`).
     
-    > **Development & Dependencies**: This project mounts **external SDKs** via Docker volumes to share code between services.
+    > **Development & Dependencies**: (for now) this project mounts **external SDKs** via Docker volumes to share code between services.
     > *   `../PepperBox/py3-naoqi-bridge` -> `/usr/src/PepperBox/py3-naoqi-bridge`
     > *   `../PepperPerception` -> `/usr/src/PepperPerception`
     >

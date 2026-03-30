@@ -96,7 +96,7 @@ class RobotActuator(Thread):
                     names = ["HeadYaw", "HeadPitch"]
                     changes = [cmd['yaw'], cmd['pitch']]
                     pass
-
+                    
             except Exception as e:
                 print(f"Actuator Error: {e}")
                 
