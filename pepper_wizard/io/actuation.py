@@ -92,7 +92,10 @@ class RobotActuator(Thread):
                     self.client.set_angles(["HeadYaw", "HeadPitch"], [cmd['yaw'], cmd['pitch']], speed)
                     
                 elif cmd['type'] == 'velocity':
-                    self.client.set_angles(["HeadYaw", "HeadPitch"], [cmd['yaw'], cmd['pitch']], 0.5)
+                    # TODO: Implement velocity control
+                    names = ["HeadYaw", "HeadPitch"]
+                    changes = [cmd['yaw'], cmd['pitch']]
+                    pass
 
             except Exception as e:
                 print(f"Actuator Error: {e}")

@@ -1,4 +1,3 @@
-import time
 import numpy as np
 from .base import ExponentialSmoother, AlphaBetaEstimator, TrapezoidalScheduler, SCurveScheduler
 
