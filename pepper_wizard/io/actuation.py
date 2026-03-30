@@ -92,7 +92,7 @@ class RobotActuator(Thread):
                     self.client.set_angles(["HeadYaw", "HeadPitch"], [cmd['yaw'], cmd['pitch']], speed)
                     
                 elif cmd['type'] == 'velocity':
-                    # TODO: Implement velocity control
+                    # Support velocity control if needed (e.g. for PID)
                     names = ["HeadYaw", "HeadPitch"]
                     changes = [cmd['yaw'], cmd['pitch']]
                     pass

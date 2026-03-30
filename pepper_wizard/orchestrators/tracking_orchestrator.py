@@ -87,6 +87,7 @@ class TrackingOrchestrator:
         self.actuator.stop()
         if hasattr(self, 'control_thread') and self.control_thread.is_alive():
              self.control_thread.join(timeout=1.0)
+        pass
         
     def set_target(self, label):
         self.active_target_label = label
@@ -108,6 +109,7 @@ class TrackingOrchestrator:
         dt_target = 1.0 / hz
         
         loop_counter = 0
+        last_log_time = time.time()
 
         while self.running:
             start_time = time.time()

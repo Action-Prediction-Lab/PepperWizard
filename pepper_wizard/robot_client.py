@@ -34,6 +34,7 @@ class RobotClient:
         print("Putting robot to rest...")
         self.logger.info("Rest")
         self.client.ALMotion.rest()
+        self.client.ALMotion.rest()
         print("Robot is at rest.")
 
     def is_awake(self):
