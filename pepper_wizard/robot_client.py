@@ -15,7 +15,6 @@ class RobotClient:
         try:
             self.client = NaoqiClient(host=host, port=port)
             # Ping a service to ensure connection
-            #self.client.ALTextToSpeech.getAvailableLanguages()
             self.client.ALTextToSpeech.getAvailableLanguages()
         except NaoqiProxyError as e:
             print(f"Failed to connect to PepperBox proxy at {host}:{port}")
@@ -34,7 +33,6 @@ class RobotClient:
         """Puts the robot to rest."""
         print("Putting robot to rest...")
         self.logger.info("Rest")
-        self.client.ALMotion.rest()
         self.client.ALMotion.rest()
         print("Robot is at rest.")
 
@@ -195,7 +193,7 @@ class RobotClient:
         self.client.ALMotion.setStiffnesses(body_part, stiffness)
 
     def get_angles(self, names, use_sensors=True):
-        """Gets the angles of joins."""
+        """Gets the angles of joints."""
         return self.client.ALMotion.getAngles(names, use_sensors)
         
     def set_angles(self, names, angles, fraction_max_speed):
