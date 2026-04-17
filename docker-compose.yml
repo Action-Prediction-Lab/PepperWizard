@@ -2,7 +2,8 @@ services:
   # The PepperBox environment running the Python 2.7 shim server
   pepper-robot-env:
     image: pepper-box:latest
-    privileged: true # For potential hardware access, though less critical now
+    devices:
+      - /dev/dri:/dev/dri # GPU render nodes for pybullet GL
     network_mode: "host"
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix # For pybullet GUI (sim mode)
