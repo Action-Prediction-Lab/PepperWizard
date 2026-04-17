@@ -17,6 +17,7 @@ services:
       - DISPLAY=${DISPLAY}
       - NVIDIA_DRIVER_CAPABILITIES=all
       - NVIDIA_VISIBLE_DEVICES=all
+      - PYTHONUNBUFFERED=1
     # This section enables GPU access if available
     deploy:
       resources:
