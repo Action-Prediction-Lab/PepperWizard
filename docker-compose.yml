@@ -1,15 +1,15 @@
-version: '3.8'
-
 services:
   # The PepperBox environment running the Python 2.7 shim server
   pepper-robot-env:
-    image: jwgcurrie/pepper-box:01-26-latest
+    image: pepper-box:latest
     privileged: true # For potential hardware access, though less critical now
     network_mode: "host"
     volumes:
-      - /tmp/.X11-unix:/tmp/.X11-unix # For running GUI apps like Choregraphe
+      - /tmp/.X11-unix:/tmp/.X11-unix # For pybullet GUI (sim mode)
       - ./robot.env:/home/pepperdev/py3-naoqi-bridge/robot.env
       - ../PepperBox/py3-naoqi-bridge:/home/pepperdev/py3-naoqi-bridge
+      - ../PepperBox/src:/home/pepperdev/src                 # sim shim + setup_wizard (live editing)
+      - ../PepperBox/.qibullet:/home/pepperdev/.qibullet     # persist qibullet asset cache across `compose down`
     env_file:
       - robot.env
     environment:
@@ -30,7 +30,7 @@ services:
 
   # Proprioception Service (New - Runs on Robot/Simulator via Bridge)
   proprioception-service:
-    image: jwgcurrie/pepper-box:01-26-latest
+    image: pepper-box:latest
     network_mode: "host"
     volumes:
       - ./robot.env:/home/pepperdev/py3-naoqi-bridge/robot.env
@@ -39,7 +39,7 @@ services:
       - robot.env
     environment:
       - PYTHONUNBUFFERED=1
-    command: [ "/home/pepperdev/.pyenv/versions/2.7.18/bin/python", "/home/pepperdev/py3-naoqi-bridge/state_service.py" ]
+    command: [ "python2", "/home/pepperdev/py3-naoqi-bridge/state_service.py" ]
 
   # The Dualshock publisher service
   dualshock-publisher:
