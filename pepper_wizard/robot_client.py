@@ -34,7 +34,7 @@ class RobotClient:
         print("Putting robot to rest...")
         self.logger.info("Rest")
         self.client.ALMotion.rest()
-        self.client.ALMotion.rest()
+        self.client.ALMotion.rest()  # Send command twice for robustness
         print("Robot is at rest.")
 
     def is_awake(self):
@@ -93,7 +93,7 @@ class RobotClient:
         try:
             # 1. Set ALTracker Mode (Low-level)
             self.client.ALTracker.setMode(mode_name)
-            self.client.ALTracker.setMode(mode_name) # Send command twice for robustnes
+            self.client.ALTracker.setMode(mode_name)  # Send command twice for robustness
             self.logger.info("TrackingModeSet", {"mode": mode_name})
             
             # 2. Set ALBasicAwareness Mode (High-level Social)
