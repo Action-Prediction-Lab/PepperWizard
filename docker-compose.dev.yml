@@ -1,0 +1,87 @@
+# Developer overlay: adds sibling-repo live mounts and the optional services
+# (proprioception, perception, dualshock). Requires sibling checkouts of
+# `../PepperBox` and `../PepperPerception` relative to this repo.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#
+# The dev stack also brings GPU + X11 into `pepper-robot-env` so Choregraphe
+# and the full entrypoint work when the host has an NVIDIA driver.
+
+services:
+  pepper-robot-env:
+    privileged: true
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - ./robot.env:/home/pepperdev/py3-naoqi-bridge/robot.env
+      - ../PepperBox/py3-naoqi-bridge:/home/pepperdev/py3-naoqi-bridge
+    environment:
+      - DISPLAY=${DISPLAY}
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      - NVIDIA_VISIBLE_DEVICES=all
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [ gpu ]
+    command: [ "/home/pepperdev/entrypoint.sh" ]
+
+  proprioception-service:
+    image: jwgcurrie/pepper-box:01-26-latest
+    network_mode: host
+    volumes:
+      - ./robot.env:/home/pepperdev/py3-naoqi-bridge/robot.env
+      - ../PepperBox/py3-naoqi-bridge:/home/pepperdev/py3-naoqi-bridge
+    env_file:
+      - robot.env
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: [ "/home/pepperdev/.pyenv/versions/2.7.18/bin/python", "/home/pepperdev/py3-naoqi-bridge/state_service.py" ]
+    restart: on-failure
+
+  dualshock-publisher:
+    image: jwgcurrie/dualshock_publisher:latest
+    privileged: true
+    volumes:
+      - /dev/input:/dev/input
+    network_mode: host
+    restart: unless-stopped
+
+  perception-service:
+    build: ../PepperPerception
+    image: pepper-perception:latest
+    shm_size: '2gb'
+    command: [ "python", "-m", "perception_service.main", "--backend", "combined" ]
+    ports:
+      - "5557:5557"
+    volumes:
+      - ../PepperPerception:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [ gpu ]
+
+  pepper-wizard:
+    environment:
+      - HF_HUB_OFFLINE=1
+      - TRANSFORMERS_OFFLINE=1
+      - PYTHONPATH=/usr/src/app:/usr/src/PepperBox/py3-naoqi-bridge:/usr/src/PepperPerception
+    depends_on:
+      - pepper-robot-env
+      - proprioception-service
+      - dualshock-publisher
+      - perception-service
+      - stt-service
+    volumes:
+      - .:/usr/src/app
+      - ../PepperBox/py3-naoqi-bridge:/usr/src/PepperBox/py3-naoqi-bridge
+      - ../PepperPerception:/usr/src/PepperPerception
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
