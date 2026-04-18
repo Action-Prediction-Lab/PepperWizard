@@ -89,24 +89,28 @@ class ZMQTeleopController(BaseTeleopController):
         print(" --- Teleoperation Thread Started ---")
         self.logger.info("TeleopStarted")
         print(" --- Press 'q' in the main terminal and Enter to stop ---")
-        
-        # Set stiffness for movement
-        # Set body to max, then immediately override head to be compliant (0.6)
-        self.robot_client.set_stiffnesses("Body", 1.0)
-        self.robot_client.set_stiffnesses("Head", 0.6)
-        self.logger.info("StiffnessSet", {"body_part": "Body", "value": 1.0, "head_override": 0.6})
+
+        # Wait for first joystick message before committing stiffness changes.
+        # If the DualShock publisher isn't running (MVP / lab handoff stacks),
+        # exit cleanly rather than leaving the robot stiffened and unresponsive.
+        first_message_timeout = self.config.teleop_config.get("joystick_first_message_timeout", 3.0)
+        first_message_received = False
+        waited_since = time.time()
+        stiffness_set = False
 
         while not teleop_running.is_set():
-            # Set a timeout to avoid blocking indefinitely
             poll_result = self.subscriber.poll(100) # 100ms timeout
+
             if poll_result == 0:
-                continue # No message, continue loop
+                if not first_message_received and (time.time() - waited_since) > first_message_timeout:
+                    print(f" --- No joystick input on {self.zmq_address} within {first_message_timeout:.0f}s — aborting. Use Keyboard mode instead. ---")
+                    self.logger.warning("JoystickUnavailable", {"address": self.zmq_address, "timeout": first_message_timeout})
+                    break
+                continue
 
             try:
-                # Receive the first available message
                 message = self.subscriber.recv_json()
-                
-                # Drain the queue to get the latest message
+
                 while True:
                     try:
                         latest = self.subscriber.recv_json(flags=zmq.NOBLOCK)
@@ -114,13 +118,19 @@ class ZMQTeleopController(BaseTeleopController):
                         if self.verbose:
                             print("[ZMQTeleopController] Skipped old message in queue")
                     except zmq.Again:
-                        break # Queue is empty
-                
-                # Process only the latest message
+                        break
+
+                if not first_message_received:
+                    first_message_received = True
+                    self.robot_client.set_stiffnesses("Body", 1.0)
+                    self.robot_client.set_stiffnesses("Head", 0.6)
+                    self.logger.info("StiffnessSet", {"body_part": "Body", "value": 1.0, "head_override": 0.6})
+                    stiffness_set = True
+
                 if self.verbose:
-                    print(f"[ZMQTeleopController] Processing latest ZMQ message: {message}") 
+                    print(f"[ZMQTeleopController] Processing latest ZMQ message: {message}")
                 self.handle_controller_input(message)
-                
+
             except zmq.ZMQError as e:
                 print(f"ZMQ Error in ZMQTeleopController: {e}")
                 self.logger.error("ZMQError", {"error": str(e)})
@@ -129,8 +139,9 @@ class ZMQTeleopController(BaseTeleopController):
                 print(f"NAOqi Proxy Error: {e}")
                 self.logger.error("ProxyError", {"error": str(e)})
                 break
-        
-        self.stop_robot()
+
+        if stiffness_set:
+            self.stop_robot()
         print(" --- Teleoperation Thread Finished ---")
         self.cleanup()
 

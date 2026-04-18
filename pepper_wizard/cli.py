@@ -168,10 +168,13 @@ def show_main_menu(teleop_state):
         ("s", format_tracking_label(teleop_state.get('tracking_mode', 'Head'))),
         ("w", format_robot_state_label(teleop_state.get('robot_state', 'Rest'))),
         ("gm", "Gaze at Marker"),
-        ("tr", "Track Object"),
-        ("tm", "Joint Temperatures"),
-        ("exit", "Exit Application")
     ]
+    if teleop_state.get('tracker_available', True):
+        options.append(("tr", "Track Object"))
+    options.extend([
+        ("tm", "Joint Temperatures"),
+        ("exit", "Exit Application"),
+    ])
     
     # Convert tuples to lists to make them mutable for the menu
     options = [list(o) for o in options]
