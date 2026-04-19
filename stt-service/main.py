@@ -149,6 +149,8 @@ DEFAULT_VAD = {
     "preroll_ms": 200,
 }
 
+DEFAULT_MODEL_SIZE = "small.en"
+
 
 def _load_vad_config(path: str = "/app/pepper_config/stt.json") -> VadConfig:
     """Load VAD parameters from stt.json if present; fall back to DEFAULT_VAD."""
@@ -160,6 +162,16 @@ def _load_vad_config(path: str = "/app/pepper_config/stt.json") -> VadConfig:
     except (FileNotFoundError, json.JSONDecodeError, OSError):
         pass
     return VadConfig(**params)
+
+
+def _load_model_size(path: str = "/app/pepper_config/stt.json") -> str:
+    """Load Whisper model_size from stt.json if present; fall back to DEFAULT_MODEL_SIZE."""
+    try:
+        with open(path) as f:
+            data = json.load(f)
+        return data.get("model_size", DEFAULT_MODEL_SIZE)
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return DEFAULT_MODEL_SIZE
 
 
 class STTService:
@@ -307,8 +319,8 @@ class STTService:
 def main():
     parser = argparse.ArgumentParser(description="PepperWizard STT Service")
     parser.add_argument(
-        "--model", type=str, default="base.en",
-        help="Whisper model size (default: base.en)",
+        "--model", type=str, default=None,
+        help="Whisper model size (overrides stt.json model_size; default taken from stt.json)",
     )
     parser.add_argument(
         "--port", type=int, default=5562,
@@ -320,8 +332,10 @@ def main():
     )
     args = parser.parse_args()
 
+    model_size = args.model if args.model is not None else _load_model_size()
+
     service = STTService(
-        model_size=args.model,
+        model_size=model_size,
         zmq_port=args.port,
         sample_rate=args.sample_rate,
     )
