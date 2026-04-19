@@ -5,15 +5,19 @@
 # Usage:
 #   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
 #
+# GPU-heavy services (perception) are gated behind the `gpu` profile so the
+# rest of the stack runs on hosts without an NVIDIA runtime. Enable with:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile gpu up
+#
 # The overlay swaps `pepper-robot-env` from the published NAOqi bridge image to
-# the sim-capable `pepper-box:latest` (headless qiBullet) and brings GPU + X11
-# into scope so pybullet's GL renderer can use /dev/dri.
+# the sim-capable `pepper-box:latest` (headless qiBullet) and mounts /dev/dri so
+# pybullet's GL renderer works on any open-source driver (AMD, Intel, NVIDIA).
 
 services:
   pepper-robot-env:
     image: pepper-box:latest
     devices:
-      - /dev/dri:/dev/dri                                    # GPU render nodes for pybullet GL
+      - /dev/dri:/dev/dri                                    # GPU render nodes (AMD/Intel/NVIDIA via mesa)
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix                        # pybullet GUI (sim mode)
       - ../PepperBox/py3-naoqi-bridge:/home/pepperdev/py3-naoqi-bridge
@@ -21,15 +25,9 @@ services:
       - ../PepperBox/.qibullet:/home/pepperdev/.qibullet     # persist qibullet asset cache across `compose down`
     environment:
       - DISPLAY=${DISPLAY}
-      - NVIDIA_DRIVER_CAPABILITIES=all
+      - QIBULLET_GUI=${QIBULLET_GUI:-false}                  # headless by default; set QIBULLET_GUI=true for the pybullet window
+      - NVIDIA_DRIVER_CAPABILITIES=all                       # honoured only when nvidia-container-runtime is present
       - NVIDIA_VISIBLE_DEVICES=all
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [ gpu ]
     command: [ "/home/pepperdev/entrypoint.sh" ]
 
   proprioception-service:
@@ -54,6 +52,7 @@ services:
     restart: unless-stopped
 
   perception-service:
+    profiles: [ gpu ]                                        # opt-in via `--profile gpu` (requires NVIDIA runtime)
     build: ../PepperPerception
     image: pepper-perception:latest
     shm_size: '2gb'
@@ -81,7 +80,6 @@ services:
       - pepper-robot-env
       - proprioception-service
       - dualshock-publisher
-      - perception-service
       - stt-service
     volumes:
       - .:/usr/src/app
