@@ -49,6 +49,7 @@ services:
     network_mode: host
     volumes:
       - ./stt-service:/app
+      - ./pepper_wizard/config:/app/pepper_config:ro
       - /run/user/${UID:-1000}/pulse:/run/user/1000/pulse
       - ${HOME}/.config/pulse/cookie:/root/.config/pulse/cookie:ro
     environment:
