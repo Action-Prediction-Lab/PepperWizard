@@ -1,7 +1,17 @@
 {
     "zmq_address": "tcp://localhost:5562",
+    "audio_zmq_address": "tcp://localhost:5563",
+    "transcription_zmq_address": "tcp://localhost:5564",
     "review_mode": true,
+    "llm_review_mode": true,
     "model_size": "base.en",
     "sample_rate": 16000,
-    "push_to_talk_key": "space"
+    "push_to_talk_key": "space",
+    "vad": {
+        "threshold": 0.4,
+        "min_silence_ms": 1200,
+        "min_utterance_ms": 300,
+        "max_utterance_ms": 15000,
+        "preroll_ms": 200
+    }
 }

@@ -44,6 +44,20 @@ services:
     command: [ "python2", "/home/pepperdev/py3-naoqi-bridge/state_service.py" ]
     restart: on-failure
 
+  audio-publisher-service:
+    image: pepper-box:latest
+    network_mode: host
+    volumes:
+      - ./robot.env:/home/pepperdev/py3-naoqi-bridge/robot.env
+      - ../PepperBox/py3-naoqi-bridge:/home/pepperdev/py3-naoqi-bridge
+    env_file:
+      - robot.env
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: [ "python2", "/home/pepperdev/py3-naoqi-bridge/audio_publisher.py" ]
+    depends_on:
+      - pepper-robot-env
+
   dualshock-publisher:
     image: jwgcurrie/dualshock_publisher:latest
     privileged: true
