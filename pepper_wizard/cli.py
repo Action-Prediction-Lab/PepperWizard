@@ -783,9 +783,9 @@ def llm_talk_session(robot_client, config, verbose=False):
     try:
         llm = LLMClient(config.llm_config)
     except LLMUnavailable as e:
-        print_formatted_text(HTML(
-            f"<ansired>LLM unavailable: {e}</ansired>"
-        ))
+        print_formatted_text(
+            HTML("<ansired>LLM unavailable: {}</ansired>").format(str(e))
+        )
         return
 
     stt_client = STTClient(stt_config.get("zmq_address", "tcp://localhost:5562"))
@@ -814,9 +814,9 @@ def llm_talk_session(robot_client, config, verbose=False):
         try:
             reply = llm.reply(user_text)
         except Exception as e:
-            print_formatted_text(HTML(
-                f"<ansired>LLM error: {e}</ansired>"
-            ))
+            print_formatted_text(
+                HTML("<ansired>LLM error: {}</ansired>").format(str(e))
+            )
             logger.error("LLMError", {"error": str(e), "user_text": user_text})
             return
 
@@ -826,10 +826,12 @@ def llm_talk_session(robot_client, config, verbose=False):
             ))
             return
 
-        print_formatted_text(HTML(
-            f"<ansicyan>[You]</ansicyan> \"{user_text}\"\n"
-            f"<ansiyellow>[Pepper]</ansiyellow> \"{reply}\""
-        ))
+        print_formatted_text(
+            HTML(
+                "<ansicyan>[You]</ansicyan> \"{}\"\n"
+                "<ansiyellow>[Pepper]</ansiyellow> \"{}\""
+            ).format(user_text, reply)
+        )
         robot_client.talk(reply)
         logger.info("LLMTurn", {"user": user_text, "reply": reply})
 
