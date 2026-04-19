@@ -30,6 +30,7 @@ services:
       - HF_HUB_OFFLINE=1
       - TRANSFORMERS_OFFLINE=1
       - PYTHONPATH=/usr/src/app
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
     command: [ "python", "-m", "pepper_wizard.main", "--proxy-ip", "localhost", "--proxy-port", "5000" ]
     depends_on:
       - pepper-robot-env

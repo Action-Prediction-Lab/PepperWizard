@@ -82,6 +82,24 @@ def load_temperature_config(file_path):
         print(f"Error loading temperature config from {file_path}: {e}")
         return {"thresholds": {"warm": 65, "hot": 80}} # Safe defaults
 
+def load_llm_config(file_path):
+    """Load LLM dialogue configuration from a JSON file."""
+    defaults = {
+        "model": "claude-haiku-4-5",
+        "system_prompt": "You are Pepper, a humanoid robot. Keep replies brief and conversational.",
+        "max_tokens": 256,
+        "temperature": 0.7,
+        "history_turns": 10,
+    }
+    try:
+        with open(file_path, "r") as f:
+            llm_config = json.load(f)
+        print("LLM config loaded successfully.")
+        return llm_config
+    except (IOError, json.JSONDecodeError) as e:
+        print(f"Error loading LLM config from {file_path}: {e}")
+        return defaults
+
 def load_stt_config(file_path):
     """Loads speech-to-text configuration from a JSON file."""
     defaults = {
@@ -111,6 +129,7 @@ class Config:
         self.keyboard_config = load_keyboard_config(CONFIG_DIR / "keyboard.json")
         self.temperature_config = load_temperature_config(CONFIG_DIR / "temperature.json")
         self.stt_config = load_stt_config(CONFIG_DIR / "stt.json")
+        self.llm_config = load_llm_config(CONFIG_DIR / "llm.json")
 
 def load_config():
     """Load all configurations."""

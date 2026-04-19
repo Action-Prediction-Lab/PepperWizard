@@ -1,0 +1,7 @@
+{
+    "model": "claude-haiku-4-5",
+    "system_prompt": "You are Pepper, a friendly humanoid robot in a research lab. Keep replies to one or two short sentences, conversational, and never use lists or markdown.",
+    "max_tokens": 256,
+    "temperature": 0.7,
+    "history_turns": 10
+}

@@ -148,6 +148,8 @@ class CommandHandler:
             talk_mode = teleop_state.get('talk_mode', 'Voice') if teleop_state else 'Voice'
             if talk_mode == 'Voice':
                 cli.voice_talk_session(self.robot_client, self.config, self.verbose)
+            elif talk_mode == 'LLM':
+                cli.llm_talk_session(self.robot_client, self.config, self.verbose)
             else:
                 cli.pepper_talk_session(self.robot_client, self.config, self.verbose)
         elif command == 'tm':

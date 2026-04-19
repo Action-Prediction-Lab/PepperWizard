@@ -81,6 +81,8 @@ def show_main_menu(teleop_state):
     def format_talk_label(mode):
         if mode == "Voice":
             return f"Talk Mode [<ansigreen>{mode}</ansigreen>]"
+        elif mode == "LLM":
+            return f"Talk Mode [<ansimagenta>{mode}</ansimagenta>]"
         else:
             return f"Talk Mode [<ansiyellow>{mode}</ansiyellow>]"
 
@@ -182,10 +184,14 @@ def show_main_menu(teleop_state):
     def on_toggle(index, opts):
         key = opts[index][0]
         if key == 't':
-            # Toggle Talk mode
+            # Cycle Talk mode: Voice -> Text -> LLM -> Voice
+            modes = ["Voice", "Text", "LLM"]
             current = teleop_state.get('talk_mode', 'Voice')
-            new_mode = "Voice" if current == "Text" else "Text"
-            teleop_state['talk_mode'] = new_mode
+            try:
+                idx = modes.index(current)
+            except ValueError:
+                idx = 0
+            teleop_state['talk_mode'] = modes[(idx + 1) % len(modes)]
             update_label(opts)
         elif key == 'j':
             # Toggle Teleop state
@@ -759,3 +765,141 @@ def voice_talk_session(robot_client, config, verbose=False):
         stt_client.close()
 
     print(" --- Exiting Voice Talk Mode ---")
+
+
+def llm_talk_session(robot_client, config, verbose=False):
+    """Voice talk with an LLM between STT and TTS.
+
+    Operator speaks (or types); utterance goes to the LLM with rolling history;
+    Pepper speaks the reply.
+    """
+    from .logger import get_logger
+    from .stt_client import STTClient
+    from .llm.client import LLMClient, LLMUnavailable
+
+    logger = get_logger("LLMTalk")
+    stt_config = config.stt_config
+
+    try:
+        llm = LLMClient(config.llm_config)
+    except LLMUnavailable as e:
+        print_formatted_text(HTML(
+            f"<ansired>LLM unavailable: {e}</ansired>"
+        ))
+        return
+
+    stt_client = STTClient(stt_config.get("zmq_address", "tcp://localhost:5562"))
+    if not stt_client.ping():
+        print_formatted_text(HTML(
+            "<ansired>Error: Could not connect to the STT service.</ansired>\n"
+            "<ansired>Is stt-service running? (docker compose up stt-service)</ansired>"
+        ))
+        stt_client.close()
+        return
+
+    print_formatted_text(HTML(
+        f" --- Entering <ansimagenta>LLM</ansimagenta> Talk Mode ---\n"
+        f" Model: <b>{llm.model}</b>\n"
+        f" Press <b>[Space]</b> to record, <b>[Enter]</b> to stop. Type to send text.\n"
+        f" <b>/reset</b> clears history, <b>/q</b> exits.\n"
+        f" ---"
+    ))
+
+    session = PromptSession()
+
+    def _dispatch(user_text):
+        """Send `user_text` to the LLM and have Pepper say the reply."""
+        if not user_text:
+            return
+        try:
+            reply = llm.reply(user_text)
+        except Exception as e:
+            print_formatted_text(HTML(
+                f"<ansired>LLM error: {e}</ansired>"
+            ))
+            logger.error("LLMError", {"error": str(e), "user_text": user_text})
+            return
+
+        if not reply:
+            print_formatted_text(HTML(
+                "<ansiyellow>LLM returned an empty reply.</ansiyellow>"
+            ))
+            return
+
+        print_formatted_text(HTML(
+            f"<ansicyan>[You]</ansicyan> \"{user_text}\"\n"
+            f"<ansiyellow>[Pepper]</ansiyellow> \"{reply}\""
+        ))
+        robot_client.talk(reply)
+        logger.info("LLMTurn", {"user": user_text, "reply": reply})
+
+    try:
+        while True:
+            bindings = KeyBindings()
+
+            @bindings.add("space")
+            def _on_space(event):
+                if not event.current_buffer.text.strip():
+                    event.current_buffer.text = ""
+                    event.app.exit(result="__record__")
+                else:
+                    event.current_buffer.insert_text(" ")
+
+            try:
+                line = session.prompt(
+                    HTML("<b><ansimagenta>LLM:</ansimagenta></b> "),
+                    key_bindings=bindings,
+                )
+            except (EOFError, KeyboardInterrupt):
+                break
+
+            if line == "__record__":
+                if not stt_client.start_recording():
+                    print_formatted_text(HTML(
+                        "<ansired>Failed to start recording.</ansired>"
+                    ))
+                    continue
+
+                print_formatted_text(HTML(
+                    " <b><ansicyan>Recording...</ansicyan></b> "
+                    "Press <b>[Enter]</b> to stop."
+                ))
+
+                import time
+                rec_start = time.time()
+                while True:
+                    try:
+                        session.prompt(HTML("<ansicyan>  ... </ansicyan>"))
+                    except (EOFError, KeyboardInterrupt):
+                        pass
+                    if time.time() - rec_start >= 0.5:
+                        break
+
+                print_formatted_text(HTML(" <i>Transcribing...</i>"))
+                result = stt_client.stop_and_transcribe()
+                transcription = result.get("transcription", "").strip()
+                error = result.get("error")
+
+                if error:
+                    print_formatted_text(HTML(f"<ansired>STT Error: {error}</ansired>"))
+                    continue
+                if not transcription:
+                    print_formatted_text(HTML("<ansiyellow>No speech detected.</ansiyellow>"))
+                    continue
+
+                _dispatch(transcription)
+                continue
+
+            if line is not None and line.strip():
+                cmd = line.strip().lower()
+                if cmd == "/q":
+                    break
+                if cmd == "/reset":
+                    llm.reset()
+                    print_formatted_text(HTML(" <b>History cleared.</b>"))
+                    continue
+                _dispatch(line.strip())
+
+    finally:
+        stt_client.close()
+        print(" --- Exiting LLM Talk Mode ---")
