@@ -70,13 +70,27 @@ That's the whole path. Teleop defaults to **Keyboard** mode; tracking entries ar
 
 ### 3. Developer stack (optional)
 
-If you have sibling checkouts of `PepperBox` and `PepperPerception` and want joystick teleop + vision tracking:
+The developer overlay (`docker-compose.dev.yml`) adds joystick teleop, proprioception, optional GPU vision tracking, and swaps the physical-robot shim for the **qiBullet simulator** baked into `pepper-box:latest`. It requires a sibling checkout of [`PepperBox`](https://github.com/Action-Prediction-Lab/PepperBox); [`PepperPerception`](https://github.com/Action-Prediction-Lab/PepperPerception) is optional (the bind-mount is auto-created empty if absent, and the perception service itself is gated behind `--profile gpu`).
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+docker compose -f docker-compose.yml -f docker-compose.dev.yml run --rm -it pepper-wizard
 ```
 
-The overlay mounts both sibling repos into the `pepper-wizard` container for live editing and brings up the three optional services.
+The overlay mounts both sibling repos into the `pepper-wizard` container for live editing.
+
+#### Running against the simulator
+
+Set `NAOQI_IP=127.0.0.1` in `robot.env` to trigger sim mode — `pepper-robot-env`'s entrypoint detects the local IP and boots qiBullet instead of pynaoqi. On first boot it auto-seeds the qiBullet asset cache (Pepper URDF + meshes) into `../PepperBox/.qibullet/`.
+
+The cache directory is auto-created by Docker as `root`-owned on first mount, which blocks the container's `pepperdev` user (UID 1000) from writing. If the entrypoint prints a permission-denied message, chown the host directory once and recreate the container:
+
+```bash
+sudo chown -R 1000:1000 ../PepperBox/.qibullet/
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --force-recreate pepper-robot-env
+```
+
+**Note:** in sim mode, `proprioception-service` is redundant — the qiBullet shim already publishes joint state on `:5560`. Its restart loop is expected and can be ignored. `audio-publisher-service` will likewise loop "broker unreachable" because qiBullet has no NAOqi broker; this is also expected.
 
 
 
