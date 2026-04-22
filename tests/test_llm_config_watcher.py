@@ -103,7 +103,7 @@ class LLMConfigWatcherTests(unittest.TestCase):
             LLMConfigWatcher(bogus)
 
     def test_callback_exception_does_not_propagate(self):
-        def boom(old, new):
+        def boom(*_):
             raise RuntimeError("callback should not crash watcher")
 
         watcher = LLMConfigWatcher(self.path, on_change=boom)
