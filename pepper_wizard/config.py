@@ -152,7 +152,6 @@ class Config:
         self.keyboard_config = load_keyboard_config(CONFIG_DIR / "keyboard.json")
         self.temperature_config = load_temperature_config(CONFIG_DIR / "temperature.json")
         self.stt_config = load_stt_config(CONFIG_DIR / "stt.json")
-        self.llm_config = load_llm_config(CONFIG_DIR / "llm.json")
         self.recording_config = load_recording_config(CONFIG_DIR / "recording.json")
 
 def load_config():
