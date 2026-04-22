@@ -62,22 +62,49 @@ NAOQI_PORT=9559           # 9559 on physical robots, sim-specific otherwise
 ### 2. Build and run (MVP)
 
 ```bash
-docker compose up -d --build          # start shim + STT in the background
-docker compose run --rm -it pepper-wizard   # launch the interactive CLI
+docker compose up -d --build                 # build images and start the background services
+docker compose stop pepper-wizard            # free port 5561 for the interactive container
+docker compose run --rm -it pepper-wizard    # launch the interactive CLI
 ```
 
-That's the whole path. Teleop defaults to **Keyboard** mode; tracking entries are hidden if the optional services aren't running.
+Subsequent CLI sessions don't need `up` or `stop` again — just re-run `docker compose run --rm -it pepper-wizard`.
+
+Teleop defaults to **Keyboard** mode; tracking entries are hidden if the optional services aren't running.
+
+> **Why the `stop` step?** `docker compose up` instantiates `pepper-wizard` as a background container that binds port 5561 for external commands. `docker compose run` creates a second interactive container that needs the same port. Stopping the first frees it for the second; both use `network_mode: host`.
 
 ### 3. Developer stack (optional)
 
 The developer overlay (`docker-compose.dev.yml`) adds joystick teleop, proprioception, optional GPU vision tracking, and swaps the physical-robot shim for the **qiBullet simulator** baked into `pepper-box:latest`. It requires a sibling checkout of [`PepperBox`](https://github.com/Action-Prediction-Lab/PepperBox); [`PepperPerception`](https://github.com/Action-Prediction-Lab/PepperPerception) is optional (the bind-mount is auto-created empty if absent, and the perception service itself is gated behind `--profile gpu`).
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile gpu up -d --build
+docker compose -f docker-compose.yml -f docker-compose.dev.yml stop pepper-wizard
 docker compose -f docker-compose.yml -f docker-compose.dev.yml run --rm -it pepper-wizard
 ```
 
+Drop `--profile gpu` on hosts without an NVIDIA runtime; the perception service stays gated and the rest of the stack runs as normal. The `stop pepper-wizard` step serves the same role as in the MVP path — frees port 5561 for the interactive CLI.
+
 The overlay mounts both sibling repos into the `pepper-wizard` container for live editing.
+
+#### Shortening the dev-overlay commands (optional)
+
+Add a `.env` file (gitignored) to the repo root:
+
+```
+COMPOSE_FILE=docker-compose.yml:docker-compose.dev.yml
+COMPOSE_PROFILES=gpu
+```
+
+Docker Compose reads these automatically, so plain `docker compose <cmd>` then picks both files and the GPU profile:
+
+```bash
+docker compose up -d --build
+docker compose stop pepper-wizard
+docker compose run --rm -it pepper-wizard
+```
+
+Omit `COMPOSE_PROFILES=gpu` on hosts without NVIDIA runtime.
 
 #### Running against the simulator
 
