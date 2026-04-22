@@ -13,6 +13,7 @@ TODO.txt
 # Environment and Venv
 .venv_test/
 robot.env
+.env
 
 # Python Packaging
 build/

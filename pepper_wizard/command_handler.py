@@ -71,12 +71,20 @@ class CommandHandler:
         self.social_state_enabled = self.robot_client.get_social_state()
         self.suppressed_social_state = False 
         
-        from .orchestrators.tracking_orchestrator import TrackingOrchestrator
-        self.tracker = TrackingOrchestrator(robot_client)
-        self.tracker.start()
-        
         from .logger import get_logger
         self.logger = get_logger("CommandHandler")
+
+        self.tracker = None
+        try:
+            from .orchestrators.tracking_orchestrator import TrackingOrchestrator
+            self.tracker = TrackingOrchestrator(robot_client)
+            self.tracker.start()
+        except ImportError as e:
+            self.logger.warning("TrackingUnavailable", {"reason": f"ImportError: {e}"})
+            print(f"[tracking] Disabled — {e}. Menu items for tracking will be hidden.")
+        except Exception as e:
+            self.logger.warning("TrackingUnavailable", {"reason": f"{type(e).__name__}: {e}"})
+            print(f"[tracking] Disabled — {type(e).__name__}: {e}. Menu items for tracking will be hidden.")
 
         # External Command Listener
         self.cmd_listener = ZMQCommandListener(self._handle_external_command)
@@ -86,21 +94,22 @@ class CommandHandler:
         """Callback for external ZMQ commands."""
         # Expected format: {"command": "track", "target": "bottle"}
         cmd_type = msg.get("command")
-        
-        if cmd_type == "track":
-            target = msg.get("target")
-            if target:
-                # print(f"External CMD: Tracking {target}")
-                self._suppress_social()
-                self.tracker.set_target(target)
+
+        if cmd_type in ("track", "stop_track"):
+            if self.tracker is None:
+                self.logger.warning("TrackingCommandIgnored", {"cmd": cmd_type})
+                return
+            if cmd_type == "track":
+                target = msg.get("target")
+                if target:
+                    self._suppress_social()
+                    self.tracker.set_target(target)
+                else:
+                    self.tracker.set_target(None)
+                    self._restore_social()
             else:
-                # print("External CMD: Stop Tracking")
                 self.tracker.set_target(None)
                 self._restore_social()
-        elif cmd_type == "stop_track":
-             # print("External CMD: Stop Tracking")
-             self.tracker.set_target(None)
-             self._restore_social()
         else:
             print(f"Unknown external command: {cmd_type}")
 
@@ -129,7 +138,7 @@ class CommandHandler:
             should_enable = (desired_mode == "Autonomous")
             
             self.social_state_enabled = self.robot_client.set_social_state(should_enable)
-            if self.social_state_enabled:
+            if self.social_state_enabled and self.tracker is not None:
                  # If operator turns social state ON, it OVERRIDES tracking
                  if self.tracker.active_target_label:
                       print("!!! Social State Enabled: Deactivating Tracking Override...")
@@ -139,24 +148,29 @@ class CommandHandler:
             talk_mode = teleop_state.get('talk_mode', 'Voice') if teleop_state else 'Voice'
             if talk_mode == 'Voice':
                 cli.voice_talk_session(self.robot_client, self.config, self.verbose)
+            elif talk_mode == 'LLM':
+                cli.llm_talk_session(self.robot_client, self.config, self.verbose)
             else:
                 cli.pepper_talk_session(self.robot_client, self.config, self.verbose)
         elif command == 'tm':
             from .cli import show_temperature_view
             show_temperature_view(self.robot_client, self.config)
 
-        elif command == 'gm': 
+        elif command == 'gm':
             if self.is_teleop_running():
                 print("Stopping active Teleop for Marker Behavior...")
                 self.stop_teleop()
-            self.tracker.yield_control()
+            if self.tracker is not None:
+                self.tracker.yield_control()
             gaze_at_marker(self.robot_client, marker_id=119, marker_size=0.22, search_timeout=10)
         elif command == 'q':
             self.stop_teleop()
         elif command == 'help':
             cli.print_help()
         elif command == 'tr':
-            # Interactive Tracking Setup
+            if self.tracker is None:
+                print("Tracking unavailable in this stack — enable the perception overlay.")
+                return
             target = cli.get_tracking_target()
             if target:
                 print(f"Tracking: {target}")
@@ -167,11 +181,16 @@ class CommandHandler:
                 self.tracker.set_target(None)
                 self._restore_social()
         elif command.startswith('track '):
+            if self.tracker is None:
+                print("Tracking unavailable in this stack — enable the perception overlay.")
+                return
             target = command.split(' ', 1)[1]
             print(f"Tracking: {target}")
             self._suppress_social()
             self.tracker.set_target(target)
         elif command == 'stoptrack':
+            if self.tracker is None:
+                return
             print("Stopping tracking.")
             self.tracker.set_target(None)
             self._restore_social()

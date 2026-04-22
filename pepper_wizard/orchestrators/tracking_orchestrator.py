@@ -3,30 +3,33 @@ import zmq
 import json
 import threading
 
-# Import SDKs 
-from clients.vision_client import VisionClient
-from clients.state_client import StateClient
-from perception_service.client import PerceptionClient
-
-# Import Core
 from ..core.tracking.head_tracker import HeadTracker
 from ..io.actuation import RobotActuator
 from ..perception.interpreter import PerceptionInterpreter
+
 
 class TrackingOrchestrator:
     """
     Manages the threaded, closed-loop visual tracking system.
 
-    This class decouples high-latency perception (running on event-driven vision callbacks) 
+    This class decouples high-latency perception (running on event-driven vision callbacks)
     from high-frequency actuation (running on a dedicated 100Hz control thread).
 
     Key Responsibilities:
     1.  **Pipeline Integration**: Connects Vision, State, Perception, and Actuation clients.
     2.  **Concurrency**: safely bridges asynchronous detections to the synchronous control loop.
     3.  **Execution**: Drives the `HeadTracker` logic and hot-reloads tuning configurations.
+
+    External-SDK imports (VisionClient, StateClient, PerceptionClient) happen in
+    __init__ so that module-level `from .tracking_orchestrator import ...` still
+    works on a stack that doesn't ship those SDKs. The caller catches ImportError
+    at construction time and runs the CLI without tracking.
     """
     def __init__(self, robot_client):
-        # IO
+        from clients.vision_client import VisionClient
+        from clients.state_client import StateClient
+        from perception_service.client import PerceptionClient
+
         self.vision = VisionClient()
         self.state = StateClient()
         self.perception = PerceptionClient()

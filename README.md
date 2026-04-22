@@ -2,33 +2,33 @@
 
 # PepperWizard
 
-PepperWizard is a Python-based application for teleoperating the Pepper robot. It provides a command-line interface to enable teleoperation via a DualShock controller, as well as to trigger speech, animations, and other actions.
+PepperWizard is a Python 3 command-line application for teleoperating the SoftBank Pepper robot. It provides an interactive TUI for voice interaction, teleop, and scripted behaviours, backed by a Dockerised NAOqi bridge.
 
 ## Features
 
-*   **Modern Bridge Architecture:** Integrates with `PepperBox` to wrap the legacy Python 2.7 / NAOqi SDK in a Docker container, allowing you to write modern Python 3 code.
-*   **Fully Dockerised:** Zero-configuration setup suitable for rapid deployment and reproducibility in HRI labs.
-*   **Joystick Teleoperation:** Control the robot's movement in real-time using a DualShock controller via [Dualshock-ZMQ](https://github.com/Action-Prediction-Lab/Dualshock-ZMQ).
-*   **Talk Modes:** A unified interface for speech and animation, featuring **voice input** via push-to-talk with live transcription, **slash-command autocomplete**, **spellcheck**, and **emoticon animation triggers**.
+*   **Modern Bridge Architecture:** Integrates with `PepperBox` to wrap the legacy Python 2.7 / NAOqi SDK in a Docker container, so your code stays in Python 3.
+*   **Self-contained MVP:** Three-service compose runs on any Linux + Docker host that can reach the robot on the network. Optional services (joystick, vision tracking, proprioception) live in a developer overlay.
+*   **Talk Modes:** A unified interface for speech and animation, with **push-to-talk voice input** (CPU Whisper), **slash-command autocomplete**, **spellcheck**, and **emoticon animation triggers**.
+*   **Teleop:** Keyboard by default; joystick (DualShock via [Dualshock-ZMQ](https://github.com/Action-Prediction-Lab/Dualshock-ZMQ)) when the dev overlay is enabled.
 *   **Experimental Logging:** Timestamped JSONL logging of all interactions.
-*   **Interactive TUI:** A minimal menu-driven terminal interface using `prompt_toolkit`.
-*   **Social State Control:** Toggle the robot's autonomous social behaviors.
-*   **Battery Status:** Check the robot's current battery level.
+*   **Social State Control:** Toggle the robot's autonomous social behaviours.
+*   **Battery & Temperature Status:** Battery level and joint-temperature warnings polled every 10s.
 
 ## Architecture
 
-The PepperWizard system is composed of four main services orchestrated by `docker-compose.yml`:
+The default `docker-compose.yml` is a **self-contained MVP** — three services, no other repos required:
 
-1.  **`pepper-robot-env`**: This service runs a Python 2.7 environment and a "shim server" to act as a bridge to the Pepper robot's native NAOqi OS. This is necessary because the robot's core libraries use Python 2.7.
-2.  **`dualshock-publisher`**: This service reads input from a connected DualShock controller (`/dev/input`) and publishes the data to a ZeroMQ message queue.
-3.  **`stt-service`**: A lightweight speech-to-text service that captures audio from the host microphone and transcribes it using a configurable Whisper model (CPU). Communicates via ZeroMQ REQ/REP.
-4.  **`pepper-wizard`**: A CLI-based middleware, written in Python 3, in which orchestration is driven by a human operator while autonomous features augment control of the Pepper robot. These include human tracking (mediapipe), object tracking (YOLO), speech-to-text (Whisper), (and others). Communicates with all other services via ZeroMQ.
+1.  **`pepper-robot-env`**: Python 2.7 "shim server" bridging the robot's NAOqi OS to modern Python 3 callers over HTTP `:5000`.
+2.  **`stt-service`**: Whisper CPU speech-to-text. Captures audio from the host microphone; communicates over ZeroMQ.
+3.  **`pepper-wizard`**: The Python 3 CLI in this repo. Drives the robot through the shim and orchestrates optional autonomous features (tracking, perception) when they're available.
+
+A separate `docker-compose.dev.yml` overlay adds `dualshock-publisher` (joystick teleop), `perception-service` (YOLO/mediapipe vision), and `proprioception-service` (state publishing). These require sibling checkouts of [`PepperBox`](https://github.com/Action-Prediction-Lab/PepperBox) and [`PepperPerception`](https://github.com/Action-Prediction-Lab/PepperPerception) and are aimed at developers.
 
 The `pepper-wizard` application itself is structured as follows:
 
 *   `main.py`: The main application entry point.
 *   `robot_client.py`: A client class that handles all direct communication with the robot.
-*   `teleop.py`: Manages the teleoperation (joystick) logic in a separate thread.
+*   `teleop.py` / `keyboard_teleop.py`: Joystick and keyboard teleop threads.
 *   `command_handler.py`: Maps user commands to specific actions.
 *   `cli.py`: Handles all command-line interface (UI) elements.
 *   `config.py`: Loads configuration files.
@@ -37,56 +37,87 @@ The `pepper-wizard` application itself is structured as follows:
 
 ### Prerequisites
 
-*   Docker
-*   Docker Compose
-*   A DualShock controller connected to the host machine.
+*   Linux host
+*   Docker + Docker Compose
+*   A Pepper robot reachable on your network (or a NAOqi simulator)
 
-> **OS Compatibility**: This project currently requires **Linux**. It utilises `network_mode: host` and direct device access (`/dev/input`) for the controller, which are not natively supported by Docker Desktop on Windows or macOS.
+> **OS Compatibility**: PepperWizard uses `network_mode: host` and host PulseAudio for the microphone, so it currently requires **Linux**. macOS and Windows are on the long-term roadmap but are not supported for the MVP.
 
-> **Note**: This project depends on the `jwgcurrie/pepper-box` Docker image for the Naoqi bridge. Docker Compose will automatically pull this publicly available image. The source code for the bridge environment will be released separately.
+> The NAOqi bridge runs from the public `jwgcurrie/pepper-box` image — Docker pulls it automatically on first run.
 
-### Connection Configuration (Simulated vs Physical)
+### 1. Point PepperWizard at your robot
 
+The connection is configured via a `robot.env` file. Copy the example and edit if your robot isn't at the lab default:
 
+```bash
+cp robot.env.example robot.env
+```
 
-The connection to the robot (or simulator) is configured via the `robot.env` file. This file interacts with the `pepper-robot-env` service, which acts as a bridge.
+```bash
+# robot.env
+NAOQI_IP=192.168.123.50   # robot IP (use 127.0.0.1 for a local NAOqi sim)
+NAOQI_PORT=9559           # 9559 on physical robots, sim-specific otherwise
+```
 
-1.  **Create or edit `robot.env`** in the root directory:
-    ```bash
-    NAOQI_IP=127.0.0.1
-    NAOQI_PORT=39961
-    ```
+### 2. Build and run (MVP)
 
-2.  **Configuration Scenarios**:
-    *   **Simulated Robot (Choregraphe)**:
-        *   Ensure your simulator is running.
-        *   Set `NAOQI_IP=127.0.0.1`.
-        *   Set `NAOQI_PORT` to your simulator's port (e.g., `39961`).
-    *   **Physical Robot**:
-        *   Set `NAOQI_IP` to the robot's IP address (e.g., `192.168.1.101`).
-        *   Set `NAOQI_PORT=9559` (default NAOqi port).
+```bash
+docker compose up -d --build                 # build images and start the background services
+docker compose stop pepper-wizard            # free port 5561 for the interactive container
+docker compose run --rm -it pepper-wizard    # launch the interactive CLI
+```
 
-### Installation & Running
+Subsequent CLI sessions don't need `up` or `stop` again — just re-run `docker compose run --rm -it pepper-wizard`.
 
-1.  Clone this repository.
-2.  Build and run the services using Docker Compose:
+Teleop defaults to **Keyboard** mode; tracking entries are hidden if the optional services aren't running.
 
-    ```bash
-    docker compose up -d --build
-    ```
-    This starts the background services (`pepper-robot-env` and `dualshock-publisher`).
-    
-    > **Development & Dependencies**: This project mounts **external SDKs** via Docker volumes to share code between services.
-    > *   `../PepperBox/py3-naoqi-bridge` -> `/usr/src/PepperBox/py3-naoqi-bridge`
-    > *   `../PepperPerception` -> `/usr/src/PepperPerception`
-    >
-    > These paths are added to `PYTHONPATH`, allowing `pepper-wizard` to import modules like `clients.vision_client` directly from `PepperBox`. Ensure your directory structure matches this layout (i.e., sibling directories).
+> **Why the `stop` step?** `docker compose up` instantiates `pepper-wizard` as a background container that binds port 5561 for external commands. `docker compose run` creates a second interactive container that needs the same port. Stopping the first frees it for the second; both use `network_mode: host`.
 
-3.  **Run the Wizard**:
-    Launch the interactive CLI:
-    ```bash
-    docker compose run --rm -it pepper-wizard
-    ```
+### 3. Developer stack (optional)
+
+The developer overlay (`docker-compose.dev.yml`) adds joystick teleop, proprioception, optional GPU vision tracking, and swaps the physical-robot shim for the **qiBullet simulator** baked into `pepper-box:latest`. It requires a sibling checkout of [`PepperBox`](https://github.com/Action-Prediction-Lab/PepperBox); [`PepperPerception`](https://github.com/Action-Prediction-Lab/PepperPerception) is optional (the bind-mount is auto-created empty if absent, and the perception service itself is gated behind `--profile gpu`).
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile gpu up -d --build
+docker compose -f docker-compose.yml -f docker-compose.dev.yml stop pepper-wizard
+docker compose -f docker-compose.yml -f docker-compose.dev.yml run --rm -it pepper-wizard
+```
+
+Drop `--profile gpu` on hosts without an NVIDIA runtime; the perception service stays gated and the rest of the stack runs as normal. The `stop pepper-wizard` step serves the same role as in the MVP path — frees port 5561 for the interactive CLI.
+
+The overlay mounts both sibling repos into the `pepper-wizard` container for live editing.
+
+#### Shortening the dev-overlay commands (optional)
+
+Add a `.env` file (gitignored) to the repo root:
+
+```
+COMPOSE_FILE=docker-compose.yml:docker-compose.dev.yml
+COMPOSE_PROFILES=gpu
+```
+
+Docker Compose reads these automatically, so plain `docker compose <cmd>` then picks both files and the GPU profile:
+
+```bash
+docker compose up -d --build
+docker compose stop pepper-wizard
+docker compose run --rm -it pepper-wizard
+```
+
+Omit `COMPOSE_PROFILES=gpu` on hosts without NVIDIA runtime.
+
+#### Running against the simulator
+
+Set `NAOQI_IP=127.0.0.1` in `robot.env` to trigger sim mode — `pepper-robot-env`'s entrypoint detects the local IP and boots qiBullet instead of pynaoqi. On first boot it auto-seeds the qiBullet asset cache (Pepper URDF + meshes) into `../PepperBox/.qibullet/`.
+
+The cache directory is auto-created by Docker as `root`-owned on first mount, which blocks the container's `pepperdev` user (UID 1000) from writing. If the entrypoint prints a permission-denied message, chown the host directory once and recreate the container:
+
+```bash
+sudo chown -R 1000:1000 ../PepperBox/.qibullet/
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --force-recreate pepper-robot-env
+```
+
+**Note:** in sim mode, `proprioception-service` is redundant — the qiBullet shim already publishes joint state on `:5560`. Its restart loop is expected and can be ignored. `audio-publisher-service` will likewise loop "broker unreachable" because qiBullet has no NAOqi broker; this is also expected.
 
 
 

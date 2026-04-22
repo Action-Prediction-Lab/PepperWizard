@@ -1,114 +1,58 @@
-version: '3.8'
+# MVP stack for PepperWizard → physical Pepper robot.
+#
+# This compose is self-contained: it does NOT require sibling checkouts of
+# PepperBox or PepperPerception. `pepper-robot-env` uses the baked-in NAOqi
+# shim from the published image; `pepper-wizard` pip-installs the bridge at
+# build time (see Dockerfile). Tracking and proprioception services are
+# optional and live in `docker-compose.dev.yml` — enable them with:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#
+# Robot connection: copy `robot.env.example` to `robot.env` and set NAOQI_IP.
 
 services:
-  # The PepperBox environment running the Python 2.7 shim server
   pepper-robot-env:
     image: jwgcurrie/pepper-box:01-26-latest
-    privileged: true # For potential hardware access, though less critical now
-    network_mode: "host"
-    volumes:
-      - /tmp/.X11-unix:/tmp/.X11-unix # For running GUI apps like Choregraphe
-      - ./robot.env:/home/pepperdev/py3-naoqi-bridge/robot.env
-      - ../PepperBox/py3-naoqi-bridge:/home/pepperdev/py3-naoqi-bridge
-    env_file:
-      - robot.env
-    environment:
-      - DISPLAY=${DISPLAY}
-      - NVIDIA_DRIVER_CAPABILITIES=all
-      - NVIDIA_VISIBLE_DEVICES=all
-    # This section enables GPU access if available
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [ gpu ]
-    # We run a shell to keep it alive and allow exec-ing into it.
-    # We run the entrypoint script which starts both the shim server and the video streamer
-    command: [ "/home/pepperdev/entrypoint.sh" ]
-
-  # Proprioception Service (New - Runs on Robot/Simulator via Bridge)
-  proprioception-service:
-    image: jwgcurrie/pepper-box:01-26-latest
-    network_mode: "host"
+    network_mode: host
     volumes:
       - ./robot.env:/home/pepperdev/py3-naoqi-bridge/robot.env
-      - ../PepperBox/py3-naoqi-bridge:/home/pepperdev/py3-naoqi-bridge
     env_file:
       - robot.env
     environment:
       - PYTHONUNBUFFERED=1
-    command: [ "/home/pepperdev/.pyenv/versions/2.7.18/bin/python", "/home/pepperdev/py3-naoqi-bridge/state_service.py" ]
+    command: [ "/home/pepperdev/.pyenv/versions/2.7.18/bin/python", "/home/pepperdev/py3-naoqi-bridge/shim_server.py" ]
+    restart: on-failure
 
-  # The Dualshock publisher service
-  dualshock-publisher:
-    image: jwgcurrie/dualshock_publisher:latest
-    privileged: true
-    volumes:
-      - /dev/input:/dev/input
-    network_mode: host
-    restart: unless-stopped
-
-  # The PepperWizard bridge application
   pepper-wizard:
     build: .
     image: pepper-wizard:latest
+    env_file:
+      - robot.env
     environment:
       - HF_HUB_OFFLINE=1
       - TRANSFORMERS_OFFLINE=1
-      # [DEV] PYTHONPATH includes external repos for live editing
-      - PYTHONPATH=/usr/src/app:/usr/src/PepperBox/py3-naoqi-bridge:/usr/src/PepperPerception
-    command: [ "python", "-m", "pepper_wizard.main", "--proxy-ip", "host.docker.internal", "--proxy-port", "5000" ]
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - PYTHONPATH=/usr/src/app
+    command: [ "python", "-m", "pepper_wizard.main", "--proxy-ip", "localhost", "--proxy-port", "5000" ]
     depends_on:
       - pepper-robot-env
-      - dualshock-publisher
-      - perception-service
       - stt-service
-    # stdin_open and tty are necessary for the interactive command prompt
     stdin_open: true
     tty: true
     network_mode: host
     volumes:
       - .:/usr/src/app
-      # [DEV] Mount external SDKs for live updates
-      - ../PepperBox/py3-naoqi-bridge:/usr/src/PepperBox/py3-naoqi-bridge
-      - ../PepperPerception:/usr/src/PepperPerception
     restart: on-failure
 
-  # The Speech-to-Text Service (Operator Mic → Whisper)
   stt-service:
     build: ./stt-service
     image: pepper-stt:latest
     network_mode: host
     volumes:
       - ./stt-service:/app
-      # Mount PulseAudio socket for host microphone access
+      - ./pepper_wizard/config:/app/pepper_config:ro
       - /run/user/${UID:-1000}/pulse:/run/user/1000/pulse
       - ${HOME}/.config/pulse/cookie:/root/.config/pulse/cookie:ro
     environment:
       - PULSE_SERVER=unix:/run/user/1000/pulse/native
       - PYTHONUNBUFFERED=1
     restart: on-failure
-
-  # The Vision Perception Service (YOLO/Mediapipe)
-  perception-service:
-    build: ../PepperPerception
-    image: pepper-perception:latest
-    shm_size: '2gb'
-    command: [ "python", "-m", "perception_service.main", "--backend", "combined" ]
-    ports:
-      - "5557:5557"
-    volumes:
-      - ../PepperPerception:/app
-    environment:
-      - PYTHONUNBUFFERED=1
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [ gpu ]
