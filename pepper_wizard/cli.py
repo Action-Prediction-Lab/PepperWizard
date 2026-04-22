@@ -837,6 +837,7 @@ def llm_talk_session(robot_client, config, verbose=False):
                                   robot_client=robot_client, logger=logger,
                                   session=session)
 
+    session = PromptSession()
     sub_thread = threading.Thread(target=_sub_loop, daemon=True)
     sub_thread.start()
 
@@ -848,8 +849,6 @@ def llm_talk_session(robot_client, config, verbose=False):
         f" <b>/reset</b> to clear context, <b>/q</b> to exit.\n"
         f" ---"
     ))
-
-    session = PromptSession()
     try:
         with patch_stdout():
             while True:
