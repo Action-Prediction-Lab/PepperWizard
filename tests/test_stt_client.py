@@ -2,113 +2,121 @@
 Unit tests for STTClient using a mock ZMQ REP server.
 """
 
-import json
 import threading
 import time
+import unittest
 
 import zmq
-import pytest
 
 from pepper_wizard.stt_client import STTClient
 
 
 # ───────────────────────────────── Helpers ──────────────────────────────────
 
-def _run_mock_stt_server(port, actions_responses, ready_event, stop_event):
-    """
-    Minimal ZMQ REP server that replies to requests with pre-defined responses.
+class _FakeSTTServer(threading.Thread):
+    """Mock ZMQ REP server for testing STTClient."""
 
-    Args:
-        port: TCP port to bind on.
-        actions_responses: dict mapping action names to response dicts.
-        ready_event: threading.Event set once the server is bound and ready.
-        stop_event: threading.Event — server exits when this is set.
-    """
-    context = zmq.Context()
-    socket = context.socket(zmq.REP)
-    socket.bind(f"tcp://*:{port}")
-    ready_event.set()
+    def __init__(self, port):
+        super().__init__(daemon=True)
+        self.port = port
+        self.received = []
+        self._should_stop = threading.Event()
 
-    while not stop_event.is_set():
-        if socket.poll(200):
-            msg = socket.recv_json()
+    def stop(self):
+        self._should_stop.set()
+
+    def run(self):
+        ctx = zmq.Context()
+        sock = ctx.socket(zmq.REP)
+        sock.bind(f"tcp://*:{self.port}")
+        sock.setsockopt(zmq.RCVTIMEO, 100)
+        while not self._should_stop.is_set():
+            try:
+                msg = sock.recv_json()
+            except zmq.Again:
+                continue
+            self.received.append(msg)
             action = msg.get("action", "")
-            reply = actions_responses.get(action, {"error": f"Unknown: {action}"})
-            socket.send_json(reply)
-
-    socket.close()
-    context.term()
-
-
-@pytest.fixture
-def mock_stt_service():
-    """Fixture that starts a mock STT server and yields (address, stop_fn)."""
-    port = 15562  # Use a non-conflicting test port
-    actions_responses = {
-        "ping": {"status": "ok"},
-        "start": {"status": "recording"},
-        "stop": {
-            "transcription": "Hello world",
-            "duration": 1.5,
-        },
-    }
-
-    ready = threading.Event()
-    stop = threading.Event()
-
-    thread = threading.Thread(
-        target=_run_mock_stt_server,
-        args=(port, actions_responses, ready, stop),
-        daemon=True,
-    )
-    thread.start()
-    ready.wait(timeout=5)
-
-    yield f"tcp://localhost:{port}"
-
-    stop.set()
-    thread.join(timeout=3)
+            if action == "ping":
+                sock.send_json({"status": "ok"})
+            elif action == "start":
+                sock.send_json({"status": "recording"})
+            elif action == "stop":
+                sock.send_json({"transcription": "Hello world", "duration": 1.5})
+            elif action == "enable_streaming":
+                sock.send_json({"status": "streaming"})
+            elif action == "disable_streaming":
+                sock.send_json({"status": "idle"})
+            elif action == "mute":
+                sock.send_json({"status": "muted"})
+            elif action == "unmute":
+                sock.send_json({"status": "unmuted"})
+            else:
+                sock.send_json({"error": f"Unknown: {action}"})
+        sock.close(linger=0)
+        ctx.term()
 
 
 # ──────────────────────────────── Tests ─────────────────────────────────────
 
-class TestSTTClient:
-    def test_ping(self, mock_stt_service):
-        client = STTClient(mock_stt_service, timeout_ms=5000)
-        assert client.ping() is True
-        assert client.is_connected is True
-        client.close()
+class TestSTTClient(unittest.TestCase):
+    def setUp(self):
+        self.server = _FakeSTTServer(port=15562)
+        self.server.start()
+        time.sleep(0.1)
+        self.client = STTClient("tcp://localhost:15562", timeout_ms=5000)
 
-    def test_start_recording(self, mock_stt_service):
-        client = STTClient(mock_stt_service, timeout_ms=5000)
-        assert client.start_recording() is True
-        client.close()
+    def tearDown(self):
+        self.client.close()
+        self.server.stop()
+        self.server.join(timeout=1.0)
 
-    def test_stop_and_transcribe(self, mock_stt_service):
-        client = STTClient(mock_stt_service, timeout_ms=5000)
-        client.start_recording()
-        result = client.stop_and_transcribe()
-        assert result["transcription"] == "Hello world"
-        assert result["duration"] == 1.5
-        assert "error" not in result
-        client.close()
+    def test_ping(self):
+        self.assertTrue(self.client.ping())
+        self.assertTrue(self.client.is_connected)
 
-    def test_full_flow(self, mock_stt_service):
+    def test_start_recording(self):
+        self.assertTrue(self.client.start_recording())
+
+    def test_stop_and_transcribe(self):
+        self.client.start_recording()
+        result = self.client.stop_and_transcribe()
+        self.assertEqual(result["transcription"], "Hello world")
+        self.assertEqual(result["duration"], 1.5)
+        self.assertNotIn("error", result)
+
+    def test_full_flow(self):
         """Simulate a complete ping → start → stop → transcribe flow."""
-        client = STTClient(mock_stt_service, timeout_ms=5000)
+        self.assertTrue(self.client.ping())
+        self.assertTrue(self.client.start_recording())
 
-        assert client.ping() is True
-        assert client.start_recording() is True
-
-        result = client.stop_and_transcribe()
-        assert result["transcription"] == "Hello world"
-        assert isinstance(result["duration"], float)
-
-        client.close()
+        result = self.client.stop_and_transcribe()
+        self.assertEqual(result["transcription"], "Hello world")
+        self.assertIsInstance(result["duration"], float)
 
     def test_timeout_on_unreachable_server(self):
         """Client should handle a downed server gracefully."""
-        client = STTClient("tcp://localhost:19999", timeout_ms=1000)
-        assert client.ping() is False
-        assert client.is_connected is False
-        client.close()
+        self.client.close()
+        self.server.stop()
+        self.server.join(timeout=1.0)
+
+        unreachable_client = STTClient("tcp://localhost:19999", timeout_ms=1000)
+        self.assertFalse(unreachable_client.ping())
+        self.assertFalse(unreachable_client.is_connected)
+        unreachable_client.close()
+
+    def test_enable_streaming(self):
+        self.assertTrue(self.client.enable_streaming())
+
+    def test_disable_streaming(self):
+        self.assertTrue(self.client.disable_streaming())
+
+    def test_mute(self):
+        self.assertTrue(self.client.mute())
+
+    def test_unmute(self):
+        self.assertTrue(self.client.unmute())
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -56,8 +56,9 @@ def main():
         "social_mode": social_mode_label,
         "robot_state": robot_state_label,
         "tracking_mode": initial_tracking_mode,
-        "battery": None
-    } 
+        "battery": None,
+        "tracker_available": command_handler.tracker is not None,
+    }
 
     # Start robot status polling thread
     import threading

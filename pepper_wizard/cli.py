@@ -3,6 +3,7 @@ from .spell_checker import SpellChecker
 from prompt_toolkit import PromptSession, print_formatted_text
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.formatted_text import HTML
+from prompt_toolkit.patch_stdout import patch_stdout
 from prompt_toolkit.styles import Style
 
 from prompt_toolkit.completion import Completer, Completion
@@ -81,6 +82,8 @@ def show_main_menu(teleop_state):
     def format_talk_label(mode):
         if mode == "Voice":
             return f"Talk Mode [<ansigreen>{mode}</ansigreen>]"
+        elif mode == "LLM":
+            return f"Talk Mode [<ansimagenta>{mode}</ansimagenta>]"
         else:
             return f"Talk Mode [<ansiyellow>{mode}</ansiyellow>]"
 
@@ -168,10 +171,13 @@ def show_main_menu(teleop_state):
         ("s", format_tracking_label(teleop_state.get('tracking_mode', 'Head'))),
         ("w", format_robot_state_label(teleop_state.get('robot_state', 'Rest'))),
         ("gm", "Gaze at Marker"),
-        ("tr", "Track Object"),
-        ("tm", "Joint Temperatures"),
-        ("exit", "Exit Application")
     ]
+    if teleop_state.get('tracker_available', True):
+        options.append(("tr", "Track Object"))
+    options.extend([
+        ("tm", "Joint Temperatures"),
+        ("exit", "Exit Application"),
+    ])
     
     # Convert tuples to lists to make them mutable for the menu
     options = [list(o) for o in options]
@@ -179,10 +185,14 @@ def show_main_menu(teleop_state):
     def on_toggle(index, opts):
         key = opts[index][0]
         if key == 't':
-            # Toggle Talk mode
+            # Cycle Talk mode: Voice -> Text -> LLM -> Voice
+            modes = ["Voice", "Text", "LLM"]
             current = teleop_state.get('talk_mode', 'Voice')
-            new_mode = "Voice" if current == "Text" else "Text"
-            teleop_state['talk_mode'] = new_mode
+            try:
+                idx = modes.index(current)
+            except ValueError:
+                idx = 0
+            teleop_state['talk_mode'] = modes[(idx + 1) % len(modes)]
             update_label(opts)
         elif key == 'j':
             # Toggle Teleop state
@@ -756,3 +766,202 @@ def voice_talk_session(robot_client, config, verbose=False):
         stt_client.close()
 
     print(" --- Exiting Voice Talk Mode ---")
+
+
+def llm_talk_session(robot_client, config, verbose=False):
+    """LLM dialogue via always-on VAD on Pepper's front microphone."""
+    from .logger import get_logger
+    from .stt_client import STTClient
+    from .llm.client import LLMClient, LLMUnavailable
+
+    logger = get_logger("LLMTalk")
+    stt_config = config.stt_config
+
+    try:
+        llm = LLMClient(config.llm_config)
+    except LLMUnavailable as e:
+        print_formatted_text(
+            HTML("<ansired>LLM unavailable: {}</ansired>").format(str(e))
+        )
+        return
+
+    stt_client = STTClient(stt_config.get("zmq_address", "tcp://localhost:5562"))
+    if not stt_client.ping():
+        print_formatted_text(HTML(
+            "<ansired>Error: Could not connect to the STT service.</ansired>"
+        ))
+        stt_client.close()
+        return
+
+    if not stt_client.enable_streaming():
+        print_formatted_text(HTML(
+            "<ansired>Error: Could not enable streaming on STT service.</ansired>"
+        ))
+        stt_client.close()
+        return
+    logger.info("StreamingEnabled", {})
+
+    import queue
+    import zmq
+    import threading
+    vad_queue = queue.Queue()
+    ctx = zmq.Context.instance()
+    sub = ctx.socket(zmq.SUB)
+    sub.connect(stt_config.get("transcription_zmq_address", "tcp://localhost:5564"))
+    sub.setsockopt(zmq.SUBSCRIBE, b"")
+    sub.setsockopt(zmq.RCVTIMEO, 200)
+
+    sub_stop = threading.Event()
+
+    # Mutable holder so the background thread always reads the current value.
+    review_mode = [bool(stt_config.get("llm_review_mode", True))]
+
+    def _sub_loop():
+        import json
+        while not sub_stop.is_set():
+            try:
+                msg = sub.recv()
+            except zmq.Again:
+                continue
+            try:
+                evt = json.loads(msg.decode())
+            except Exception:
+                continue
+            if review_mode[0]:
+                # Review mode: queue for main thread to handle with a review prompt.
+                vad_queue.put(evt)
+            else:
+                # Auto-dispatch mode: fire directly from background thread.
+                _handle_vad_event(evt, review_mode=False,
+                                  llm=llm, stt=stt_client,
+                                  robot_client=robot_client, logger=logger,
+                                  session=session)
+
+    session = PromptSession()
+    sub_thread = threading.Thread(target=_sub_loop, daemon=True)
+    sub_thread.start()
+
+    review_label = "on" if review_mode[0] else "off"
+    print_formatted_text(HTML(
+        f" --- Entering <ansimagenta>LLM</ansimagenta> Talk Mode ---\n"
+        f" Model: <b>{llm.model}</b> | review gate: <b>{review_label}</b>\n"
+        f" Pepper is listening. Type to override, <b>/review</b> to toggle review gate,\n"
+        f" <b>/reset</b> to clear context, <b>/q</b> to exit.\n"
+        f" ---"
+    ))
+    try:
+        with patch_stdout():
+            while True:
+                # Drain any queued events (only populated when review_mode[0] is True).
+                while not vad_queue.empty():
+                    evt = vad_queue.get_nowait()
+                    _handle_vad_event(evt, review_mode=review_mode[0],
+                                      llm=llm, stt=stt_client,
+                                      robot_client=robot_client, logger=logger,
+                                      session=session)
+                try:
+                    line = session.prompt(HTML("<b><ansimagenta>LLM:</ansimagenta></b> "))
+                except (EOFError, KeyboardInterrupt):
+                    break
+
+                stripped = line.strip()
+                if not stripped:
+                    continue
+                if stripped == "/q":
+                    break
+                if stripped == "/reset":
+                    llm.reset()
+                    print_formatted_text(HTML("<ansiyellow>Context cleared.</ansiyellow>"))
+                    continue
+                if stripped == "/review":
+                    review_mode[0] = not review_mode[0]
+                    label = "on" if review_mode[0] else "off"
+                    print_formatted_text(HTML(f"<ansiyellow>Review gate: {label}</ansiyellow>"))
+                    continue
+
+                _dispatch_to_llm(stripped, source="typed", llm=llm, stt=stt_client,
+                                 robot_client=robot_client, logger=logger)
+    finally:
+        sub_stop.set()
+        sub_thread.join(timeout=1.0)
+        sub.close()
+        stt_client.disable_streaming()
+        stt_client.close()
+        logger.info("StreamingDisabled", {})
+        print_formatted_text(HTML(" --- Exiting LLM Talk Mode ---"))
+
+
+def _handle_vad_event(evt, *, review_mode, llm, stt, robot_client, logger, session):
+    if "error" in evt:
+        print_formatted_text(
+            HTML("<ansired>[VAD error] {}: {}</ansired>").format(evt.get("error", ""), evt.get("detail", ""))
+        )
+        return
+
+    text = (evt.get("text") or "").strip()
+    duration_s = float(evt.get("duration_s") or 0.0)
+    if not text:
+        logger.info("VADUtterance", {"duration_s": duration_s, "sent": False, "reason": "empty"})
+        return
+
+    if review_mode:
+        review_session = PromptSession()
+        try:
+            final = review_session.prompt(
+                HTML("<ansicyan>Heard [review]:</ansicyan> "),
+                default=text,
+            )
+        except (EOFError, KeyboardInterrupt):
+            final = None
+
+        if final is None or not final.strip():
+            logger.info("VADUtterance", {"text": text, "duration_s": duration_s,
+                                          "sent": False, "reason": "discarded"})
+            return
+        logger.info("VADUtterance", {"text": final.strip(), "duration_s": duration_s,
+                                      "sent": True, "edited": final.strip() != text})
+        _dispatch_to_llm(final.strip(), source="robot_mic",
+                         llm=llm, stt=stt,
+                         robot_client=robot_client, logger=logger)
+        return
+
+    logger.info("VADUtterance", {"text": text, "duration_s": duration_s, "sent": True})
+    _dispatch_to_llm(text, source="robot_mic", llm=llm, stt=stt,
+                     robot_client=robot_client, logger=logger)
+
+
+def _dispatch_to_llm(user_text, *, source, llm, stt, robot_client, logger):
+    # Mute while Pepper is speaking so stt-service ignores self-hearing.
+    stt.mute()
+    logger.info("MuteStart", {})
+    try:
+        reply = llm.reply(user_text)
+    except Exception as e:
+        print_formatted_text(
+            HTML("<ansired>LLM error: {}</ansired>").format(str(e))
+        )
+        logger.error("LLMError", {"error": str(e), "user_text": user_text})
+        stt.unmute()
+        logger.info("MuteEnd", {})
+        return
+
+    if not reply:
+        print_formatted_text(HTML("<ansiyellow>LLM returned empty reply.</ansiyellow>"))
+        stt.unmute()
+        logger.info("MuteEnd", {})
+        return
+
+    print_formatted_text(
+        HTML(
+            "<ansicyan>[You]</ansicyan> \"{}\"\n"
+            "<ansiyellow>[Pepper]</ansiyellow> \"{}\""
+        ).format(user_text, reply)
+    )
+    try:
+        robot_client.talk(reply)
+    except Exception as e:
+        print_formatted_text(HTML("<ansired>talk() failed: {}</ansired>").format(str(e)))
+        logger.error("TalkFailed", {"error": str(e)})
+    stt.unmute()
+    logger.info("MuteEnd", {})
+    logger.info("LLMTurn", {"user": user_text, "reply": reply, "source": source})
