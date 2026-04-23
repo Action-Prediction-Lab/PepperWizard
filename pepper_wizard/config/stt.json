@@ -4,7 +4,7 @@
     "transcription_zmq_address": "tcp://localhost:5564",
     "review_mode": true,
     "llm_review_mode": true,
-    "model_size": "small.en",
+    "model_size": "base.en",
     "sample_rate": 16000,
     "push_to_talk_key": "space",
     "vad": {
