@@ -55,4 +55,6 @@ services:
     environment:
       - PULSE_SERVER=unix:/run/user/1000/pulse/native
       - PYTHONUNBUFFERED=1
+      - STT_DEVICE=${STT_DEVICE:-auto}
+      - STT_COMPUTE_TYPE=${STT_COMPUTE_TYPE:-auto}
     restart: on-failure

@@ -1,0 +1,19 @@
+# GPU overlay for stt-service. Independent of docker-compose.dev.yml so that
+# demos on the plain MVP compose can still use GPU STT on hosts with an NVIDIA
+# runtime. See roadmap/specs/2026-04-23-gpu-optional-stt-design.md.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up
+#
+# Or persistently via `.env`:
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.gpu.yml
+
+services:
+  stt-service:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [ gpu ]

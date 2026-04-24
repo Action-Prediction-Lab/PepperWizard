@@ -17,6 +17,7 @@ import os
 import time
 import threading
 from datetime import datetime, timezone
+from typing import Optional
 
 import numpy as np
 import sounddevice as sd
@@ -141,6 +142,59 @@ class AudioRecorder:
         return audio
 
 
+# Import-time snapshots of STT_DEVICE / STT_COMPUTE_TYPE, kept for diagnostics and
+# future consumers (e.g. a startup banner). _load_whisper below deliberately reads
+# os.environ at call time rather than using these constants, so tests can patch
+# the env without reimporting the module. See test_reads_env_when_args_omitted.
+DEFAULT_DEVICE = os.environ.get("STT_DEVICE", "auto")
+DEFAULT_COMPUTE_TYPE = os.environ.get("STT_COMPUTE_TYPE", "auto")
+
+
+def _load_whisper(model_size: str,
+                  device: Optional[str] = None,
+                  compute_type: Optional[str] = None):
+    """Load WhisperModel with runtime device selection.
+
+    Resolution order for `device` and `compute_type`:
+      1. explicit argument, if provided
+      2. STT_DEVICE / STT_COMPUTE_TYPE environment variables (per-call read)
+      3. "auto"
+
+    Behaviour:
+      - device="auto": try CUDA/float16 first; on RuntimeError/ValueError, fall back to CPU/int8.
+      - device="cuda": try CUDA/float16; re-raise on failure (operator asked for GPU and should notice).
+      - device="cpu":  use CPU/int8 directly.
+
+    compute_type="auto" resolves to "float16" for CUDA paths and "int8" for CPU paths.
+    Any explicit compute_type is honoured as-is.
+    """
+    if device is None:
+        device = os.environ.get("STT_DEVICE", "auto")
+    if compute_type is None:
+        compute_type = os.environ.get("STT_COMPUTE_TYPE", "auto")
+
+    requested_device = device
+
+    if requested_device in ("auto", "cuda"):
+        actual_device = "cuda"
+        actual_compute = "float16" if compute_type == "auto" else compute_type
+        try:
+            print(f"[STTService] Trying GPU: device={actual_device}, compute_type={actual_compute}")
+            model = WhisperModel(model_size, device=actual_device, compute_type=actual_compute)
+            print(f"[STTService] Loaded whisper '{model_size}' on {actual_device}/{actual_compute}")
+            return model
+        except (RuntimeError, ValueError) as exc:
+            if requested_device == "cuda":
+                raise
+            print(f"[STTService] GPU load failed ({exc}); falling back to CPU.")
+
+    actual_device = "cpu"
+    actual_compute = "int8" if compute_type == "auto" else compute_type
+    model = WhisperModel(model_size, device=actual_device, compute_type=actual_compute)
+    print(f"[STTService] Loaded whisper '{model_size}' on {actual_device}/{actual_compute}")
+    return model
+
+
 DEFAULT_VAD = {
     "threshold": 0.5,
     "min_silence_ms": 700,
@@ -180,11 +234,8 @@ class STTService:
     def __init__(self, model_size: str, zmq_port: int, sample_rate: int):
         self.recorder = AudioRecorder(sample_rate=sample_rate)
 
-        # Load the Whisper model (CPU, int8 quantised)
-        print(f"[STTService] Loading whisper model '{model_size}' (cpu, int8)...")
-        self.model = WhisperModel(
-            model_size, device="cpu", compute_type="int8"
-        )
+        # Resolve device/compute_type at runtime via _load_whisper (see module-level helper).
+        self.model = _load_whisper(model_size)
         print(f"[STTService] Model loaded.")
 
         # ZMQ setup
