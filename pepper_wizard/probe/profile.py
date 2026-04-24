@@ -43,11 +43,13 @@ class Profile:
         whisper_model = _WHISPER_BY_TIER.get(self.cpu_tier.value, "tiny.en")
         teleop_default = "Joystick" if self.controller.value == "dualshock" else "Keyboard"
 
+        whisper_device = "cuda" if self.gpu.value == "nvidia-cuda" else "cpu"
         return Recommendation(
             stack=stack,
             missing=missing,
             settings={
                 "whisper_model": whisper_model,
+                "whisper_device": whisper_device,
                 "teleop_default": teleop_default,
             },
         )

@@ -20,8 +20,12 @@ def format_report(profile: Profile) -> str:
         "",
         f"Recommended stack: {rec.stack}",
         f"  Whisper model  : {rec.settings['whisper_model']}",
+        f"  Whisper device : {rec.settings['whisper_device']}",
         f"  Teleop default : {rec.settings['teleop_default']}",
     ]
+    if rec.settings.get("whisper_device") == "cuda":
+        lines.append("")
+        lines.append("Suggested: add COMPOSE_FILE=docker-compose.yml:docker-compose.gpu.yml to .env to enable GPU STT.")
     if rec.missing:
         lines.append("")
         lines.append("Missing prerequisites:")

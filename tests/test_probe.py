@@ -179,6 +179,43 @@ class TestProfileRecommend(unittest.TestCase):
         rec = p.recommend()
         self.assertTrue(any("audio" in m.lower() for m in rec.missing))
 
+    def test_recommend_includes_whisper_device_cuda_when_nvidia_cuda(self):
+        p = self._profile("nvidia-cuda", "reachable", "dualshock", "mid", "pulse")
+        rec = p.recommend()
+        self.assertEqual(rec.settings["whisper_device"], "cuda")
+
+    def test_recommend_includes_whisper_device_cpu_when_no_gpu(self):
+        p = self._profile("none", "reachable", "keyboard-only", "mid", "pulse")
+        rec = p.recommend()
+        self.assertEqual(rec.settings["whisper_device"], "cpu")
+
+
+class TestFormatReport(unittest.TestCase):
+    def _profile(self, gpu, robot, controller, cpu, audio):
+        return Profile(
+            gpu=_r(gpu), robot=_r(robot), controller=_r(controller),
+            cpu_tier=_r(cpu), audio=_r(audio),
+        )
+
+    def test_report_shows_whisper_device(self):
+        from pepper_wizard.probe.cli import format_report
+        p = self._profile("nvidia-cuda", "reachable", "dualshock", "mid", "pulse")
+        report = format_report(p)
+        self.assertIn("Whisper device", report)
+        self.assertIn("cuda", report)
+
+    def test_report_shows_gpu_compose_hint_when_cuda(self):
+        from pepper_wizard.probe.cli import format_report
+        p = self._profile("nvidia-cuda", "reachable", "dualshock", "mid", "pulse")
+        report = format_report(p)
+        self.assertIn("docker-compose.gpu.yml", report)
+
+    def test_report_omits_gpu_hint_when_no_gpu(self):
+        from pepper_wizard.probe.cli import format_report
+        p = self._profile("none", "reachable", "keyboard-only", "mid", "pulse")
+        report = format_report(p)
+        self.assertNotIn("docker-compose.gpu.yml", report)
+
 
 if __name__ == "__main__":
     unittest.main()
