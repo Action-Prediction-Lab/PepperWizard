@@ -14,6 +14,7 @@ Protocol:
 import argparse
 import json
 import os
+import signal
 import time
 import threading
 from datetime import datetime, timezone
@@ -251,6 +252,15 @@ class STTService:
         self._audio_addr = "tcp://localhost:5563"
         self._pub_addr = "tcp://*:5564"
 
+        # Shutdown flag polled by run(). Set by SIGTERM handler installed in
+        # main() — not in __init__, to keep tests from mutating process-wide
+        # signal handlers when they instantiate STTService.
+        self._shutdown = False
+
+    def request_shutdown(self):
+        """Ask the service to exit its main loop on the next poll tick (~500ms)."""
+        self._shutdown = True
+
     def transcribe(self, audio: np.ndarray) -> str:
         """Run whisper transcription on a float32 audio array."""
         if len(audio) == 0:
@@ -351,8 +361,12 @@ class STTService:
     def run(self):
         """Main service loop — handles REQ/REP messages."""
         print("[STTService] Ready. Waiting for commands...")
-        while True:
+        while not self._shutdown:
             try:
+                # Poll with timeout so the loop wakes up even with no traffic
+                # and can observe self._shutdown (set by SIGTERM handler).
+                if not (self.socket.poll(timeout=500) & zmq.POLLIN):
+                    continue
                 msg = self.socket.recv_json()
                 reply = self._handle_action(msg)
                 self.socket.send_json(reply)
@@ -363,7 +377,11 @@ class STTService:
                 print("\n[STTService] Shutting down...")
                 break
 
-        self.socket.close()
+        print("[STTService] Shutting down cleanly.")
+        if self._worker is not None:
+            self._worker.stop()
+            self._worker.join(timeout=2.0)
+        self.socket.close(linger=0)
         self.context.term()
 
 
@@ -390,6 +408,15 @@ def main():
         zmq_port=args.port,
         sample_rate=args.sample_rate,
     )
+
+    # Docker sends SIGTERM and waits 10s before SIGKILL. Hook both SIGTERM and
+    # SIGINT so `compose stop` and Ctrl+C exit via the poll-based loop in
+    # STTService.run() instead of blocking the full grace period.
+    def _on_signal(signum, frame):
+        service.request_shutdown()
+    signal.signal(signal.SIGTERM, _on_signal)
+    signal.signal(signal.SIGINT, _on_signal)
+
     service.run()
 
 
