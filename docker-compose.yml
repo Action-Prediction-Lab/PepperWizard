@@ -52,9 +52,15 @@ services:
       - ./pepper_wizard/config:/app/pepper_config:ro
       - /run/user/${UID:-1000}/pulse:/run/user/1000/pulse
       - ${HOME}/.config/pulse/cookie:/root/.config/pulse/cookie:ro
+      - huggingface-cache:/root/.cache/huggingface
     environment:
       - PULSE_SERVER=unix:/run/user/1000/pulse/native
       - PYTHONUNBUFFERED=1
       - STT_DEVICE=${STT_DEVICE:-auto}
       - STT_COMPUTE_TYPE=${STT_COMPUTE_TYPE:-auto}
+      - HF_HUB_OFFLINE=${HF_HUB_OFFLINE:-0}
+      - TRANSFORMERS_OFFLINE=${TRANSFORMERS_OFFLINE:-0}
     restart: on-failure
+
+volumes:
+  huggingface-cache:
