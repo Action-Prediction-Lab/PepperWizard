@@ -8,7 +8,7 @@ PepperWizard is a Python 3 command-line application for teleoperating the SoftBa
 
 *   **Modern Bridge Architecture:** Integrates with `PepperBox` to wrap the legacy Python 2.7 / NAOqi SDK in a Docker container, so your code stays in Python 3.
 *   **Self-contained MVP:** Three-service compose runs on any Linux + Docker host that can reach the robot on the network. Optional services (joystick, vision tracking, proprioception) live in a developer overlay.
-*   **Talk Modes:** A unified interface for speech and animation, with **push-to-talk voice input** (CPU Whisper), **slash-command autocomplete**, **spellcheck**, and **emoticon animation triggers**.
+*   **Talk Modes:** A unified interface for speech and animation, with **push-to-talk voice input** (Whisper, CPU or GPU), **slash-command autocomplete**, **spellcheck**, and **emoticon animation triggers**.
 *   **Teleop:** Keyboard by default; joystick (DualShock via [Dualshock-ZMQ](https://github.com/Action-Prediction-Lab/Dualshock-ZMQ)) when the dev overlay is enabled.
 *   **Experimental Logging:** Timestamped JSONL logging of all interactions.
 *   **Social State Control:** Toggle the robot's autonomous social behaviours.
@@ -19,7 +19,7 @@ PepperWizard is a Python 3 command-line application for teleoperating the SoftBa
 The default `docker-compose.yml` is a **self-contained MVP** — three services, no other repos required:
 
 1.  **`pepper-robot-env`**: Python 2.7 "shim server" bridging the robot's NAOqi OS to modern Python 3 callers over HTTP `:5000`.
-2.  **`stt-service`**: Whisper CPU speech-to-text. Captures audio from the host microphone; communicates over ZeroMQ.
+2.  **`stt-service`**: Whisper speech-to-text (auto-detects GPU, CPU fallback). Captures audio from the host microphone; communicates over ZeroMQ.
 3.  **`pepper-wizard`**: The Python 3 CLI in this repo. Drives the robot through the shim and orchestrates optional autonomous features (tracking, perception) when they're available.
 
 A separate `docker-compose.dev.yml` overlay adds `dualshock-publisher` (joystick teleop), `perception-service` (YOLO/mediapipe vision), and `proprioception-service` (state publishing). These require sibling checkouts of [`PepperBox`](https://github.com/Action-Prediction-Lab/PepperBox) and [`PepperPerception`](https://github.com/Action-Prediction-Lab/PepperPerception) and are aimed at developers.
@@ -73,6 +73,20 @@ Teleop defaults to **Keyboard** mode; tracking entries are hidden if the optiona
 
 > **Why the `stop` step?** `docker compose up` instantiates `pepper-wizard` as a background container that binds port 5561 for external commands. `docker compose run` creates a second interactive container that needs the same port. Stopping the first frees it for the second; both use `network_mode: host`.
 
+### GPU STT (optional)
+
+On hosts with an NVIDIA GPU plus `nvidia-container-runtime`, include `docker-compose.gpu.yml` in the compose chain to run Whisper on CUDA. The overlay adds only a GPU device reservation to `stt-service`; everything else inherits from the MVP. Whisper weights persist in a named `huggingface-cache` volume so they survive container recreation.
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml stop pepper-wizard
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml run --rm -it pepper-wizard
+```
+
+The default model is `medium.en` (defined in `pepper_wizard/config/stt.json`); bump it up for accuracy or down for VRAM headroom as needed. See `.env.example` at the repo root for the supported env-var knobs including offline-mode hardening.
+
+GPU STT is orthogonal to the developer overlay; combine `-f docker-compose.yml -f docker-compose.gpu.yml -f docker-compose.dev.yml` for a GPU-accelerated developer stack.
+
 ### 3. Developer stack (optional)
 
 The developer overlay (`docker-compose.dev.yml`) adds joystick teleop, proprioception, optional GPU vision tracking, and swaps the physical-robot shim for the **qiBullet simulator** baked into `pepper-box:latest`. It requires a sibling checkout of [`PepperBox`](https://github.com/Action-Prediction-Lab/PepperBox); [`PepperPerception`](https://github.com/Action-Prediction-Lab/PepperPerception) is optional (the bind-mount is auto-created empty if absent, and the perception service itself is gated behind `--profile gpu`).
@@ -87,16 +101,16 @@ Drop `--profile gpu` on hosts without an NVIDIA runtime; the perception service 
 
 The overlay mounts both sibling repos into the `pepper-wizard` container for live editing.
 
-#### Shortening the dev-overlay commands (optional)
+#### Shortening the compose commands (optional)
 
-Add a `.env` file (gitignored) to the repo root:
+Add a `.env` file (gitignored) to the repo root. `.env.example` in the repo root is a fully-commented template covering the supported knobs (compose-file chain, STT device overrides, HuggingFace offline mode). For a GPU-accelerated developer setup:
 
 ```
-COMPOSE_FILE=docker-compose.yml:docker-compose.dev.yml
+COMPOSE_FILE=docker-compose.yml:docker-compose.gpu.yml:docker-compose.dev.yml
 COMPOSE_PROFILES=gpu
 ```
 
-Docker Compose reads these automatically, so plain `docker compose <cmd>` then picks both files and the GPU profile:
+Docker Compose reads these automatically, so plain `docker compose <cmd>` then picks up all three files and the GPU profile:
 
 ```bash
 docker compose up -d --build
@@ -104,7 +118,7 @@ docker compose stop pepper-wizard
 docker compose run --rm -it pepper-wizard
 ```
 
-Omit `COMPOSE_PROFILES=gpu` on hosts without NVIDIA runtime.
+Omit `docker-compose.gpu.yml` on hosts without NVIDIA runtime; omit `COMPOSE_PROFILES=gpu` if you don't need perception.
 
 #### Running against the simulator
 
