@@ -36,7 +36,7 @@ The overlay swaps `pepper-robot-env` for the sim-capable `pepper-box:latest` ima
 | `5560` | ZMQ PUB | out | `pepper-robot-env` state shim, or `proprioception-service` (dev) | `pepper-wizard` (SUB) |
 | `5561` | ZMQ REP | in | `pepper-wizard` via [`ZMQCommandListener`](../../pepper_wizard/command_handler.py#L12) | external experiment scripts (REQ) |
 | `5562` | ZMQ REP | in | `stt-service` | `pepper-wizard` (REQ) |
-| `5563` | ZMQ PUB | in to `stt-service` | `audio-publisher-service` (dev) or [`tools/host_mic_publisher.py`](../../tools/host_mic_publisher.py) | `stt-service` (SUB) |
+| `5563` | ZMQ PUB | in to `stt-service` | `audio-publisher-service` (dev) or [`pepper_wizard/tools/host_mic_publisher.py`](../../pepper_wizard/tools/host_mic_publisher.py) | `stt-service` (SUB) |
 | `5564` | ZMQ PUB | out | `stt-service` | `pepper-wizard` (SUB) |
 
 The `5559` / `5560` pair shares a compose caveat: only one process can bind each port under `network_mode: host`, so the base shim's state publisher and the dev overlay's `proprioception-service` are mutually exclusive. See the [Sim mode notes in getting started](../user/getting-started.md#simulator-dev-overlay-no-physical-robot-needed) for why `proprioception-service` restart-loops under sim mode.
