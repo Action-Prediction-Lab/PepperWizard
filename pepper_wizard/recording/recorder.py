@@ -34,7 +34,9 @@ class Recorder:
     def __init__(self, config, session_id, video_address, audio_address,
                  clock_sync_url=None):
         self._config = dict(config)
-        self._session_id = session_id or "unset"
+        # session_id is optional. When not set, file names omit the prefix and
+        # use the timestamp alone (matches the logger's behaviour for log files).
+        self._session_id = session_id or None
         self._video_address = video_address
         self._audio_address = audio_address
         self._clock_sync_url = clock_sync_url
@@ -59,7 +61,10 @@ class Recorder:
         out_dir = self._config["output_dir"]
         os.makedirs(out_dir, exist_ok=True)
         ts = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        stem = os.path.join(out_dir, f"session_{self._session_id}_{ts}")
+        if self._session_id:
+            stem = os.path.join(out_dir, f"session_{self._session_id}_{ts}")
+        else:
+            stem = os.path.join(out_dir, f"session_{ts}")
         return {
             "mkv": stem + ".mkv",
             "jsonl": stem + ".jsonl",

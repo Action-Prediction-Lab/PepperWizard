@@ -113,6 +113,28 @@ class TestRecorder(unittest.TestCase):
             ts = [l["ingest_utc_ns"] for l in lines if l.get("type") == stream]
             self.assertEqual(ts, sorted(ts), f"{stream} timestamps not monotonic")
 
+    def test_no_session_id_drops_prefix(self):
+        """When session_id is None, file names use just the timestamp — no
+        'session_unset_' or similar placeholder."""
+        rec = Recorder(
+            config=self._config(),
+            session_id=None,
+            video_address=f"tcp://localhost:{self.streams.video_port}",
+            audio_address=f"tcp://localhost:{self.streams.audio_port}",
+            clock_sync_url=None,
+        )
+        rec.start()
+        time.sleep(0.5)
+        result = rec.stop()
+        for kind in ("mkv", "jsonl", "clocksync"):
+            stem = os.path.basename(result[kind])
+            self.assertTrue(stem.startswith("session_"),
+                            f"{kind} basename {stem} should start with 'session_'")
+            self.assertNotIn("unset", stem,
+                             f"{kind} basename {stem} should not contain 'unset'")
+            self.assertNotIn("None", stem,
+                             f"{kind} basename {stem} should not contain 'None'")
+
     def test_double_start_is_no_op(self):
         rec = self._new_recorder()
         rec.start()
