@@ -56,14 +56,19 @@ class TestMkvMuxer(unittest.TestCase):
             stream_types = {s.type for s in streams}
             self.assertSetEqual(stream_types, {"video", "audio"})
 
-    def test_mkv_packet_pts_match_input_pts(self):
-        """Regression: previously frame.pts (intended in ms) was reinterpreted in
-        the codec's default frame rate (1/24s or 1/30s) and rescaled to the
-        stream's 1/1000s, multiplying every recorded pts by ~33-42×. VLC played
-        the result at 1/33 speed, looking exactly like a starving feed.
+    def test_video_pts_match_input_and_audio_paced_sequentially(self):
+        """Two regressions in one:
 
-        We assert that the LAST video and audio packet's pts (in stream time_base)
-        is within tolerance of the LAST input pts_ms — i.e. no silent rescaling.
+        1. Video PTS used to be silently rescaled by the codec's default rate
+           (1/24s or 1/30s), making 5s recordings play back as 200s. We assert
+           the LAST video packet's seconds-equivalent matches the last input ms.
+
+        2. Audio is a continuous PCM stream — the publisher delivers chunks
+           with variable wall-clock cadence (often bursts) but each chunk is a
+           fixed duration of real audio. Using ingest-time PTS leaves silent
+           gaps between every chunk in the MKV (clicks on playback). We feed
+           the muxer an audio BURST (chunks with dt=5ms) and assert the OUTPUT
+           pts are paced by sample count, not by input ms.
         """
         muxer = MkvMuxer(
             path=self.path,
@@ -74,18 +79,21 @@ class TestMkvMuxer(unittest.TestCase):
             audio_sample_rate=16000,
             audio_channels=1,
         )
+        # Video at 100ms intervals.
         N_FRAMES = 50
         FRAME_DT_MS = 100
         last_video_pts_ms = (N_FRAMES - 1) * FRAME_DT_MS  # 4900 ms
         for i in range(N_FRAMES):
             frame_bytes = (np.ones((240, 320), dtype=np.uint8) * 50).tobytes()
             muxer.write_video_frame(frame_bytes, pts_ms=i * FRAME_DT_MS)
+        # Audio BURST: 30 chunks at 5ms wall-clock dt, but each chunk is 2720
+        # samples (170ms of real PCM @ 16kHz). Total real audio = 29 * 170 = 4930ms.
         N_CHUNKS = 30
-        CHUNK_DT_MS = 170
-        last_audio_pts_ms = (N_CHUNKS - 1) * CHUNK_DT_MS  # 4930 ms
+        SAMPLES_PER_CHUNK = 2720
         for i in range(N_CHUNKS):
-            samples = np.full(2720, 50, dtype=np.int16)
-            muxer.write_audio_chunk(samples.tobytes(), pts_ms=i * CHUNK_DT_MS)
+            samples = np.full(SAMPLES_PER_CHUNK, 50, dtype=np.int16)
+            muxer.write_audio_chunk(samples.tobytes(), pts_ms=i * 5)  # burst
+        expected_audio_last_ms = (N_CHUNKS - 1) * (SAMPLES_PER_CHUNK * 1000) // 16000  # 4930
         muxer.close()
 
         with av.open(self.path) as container:
@@ -97,16 +105,16 @@ class TestMkvMuxer(unittest.TestCase):
                 if packet.pts is not None and packet.stream.type in last_pts:
                     last_pts[packet.stream.type] = packet.pts
 
-        # Assert last packet's seconds-equivalent matches input within 200ms.
         v_seconds = float(last_pts["video"] * time_base["video"])
         a_seconds = float(last_pts["audio"] * time_base["audio"])
         self.assertAlmostEqual(v_seconds, last_video_pts_ms / 1000.0, delta=0.2,
                                msg=f"video last pts {v_seconds:.3f}s does not match "
                                    f"input {last_video_pts_ms/1000.0:.3f}s — "
                                    "PTS were silently rescaled.")
-        self.assertAlmostEqual(a_seconds, last_audio_pts_ms / 1000.0, delta=0.2,
-                               msg=f"audio last pts {a_seconds:.3f}s does not match "
-                                   f"input {last_audio_pts_ms/1000.0:.3f}s.")
+        self.assertAlmostEqual(a_seconds, expected_audio_last_ms / 1000.0, delta=0.2,
+                               msg=f"audio last pts {a_seconds:.3f}s should be paced by "
+                                   f"sample count to {expected_audio_last_ms/1000.0:.3f}s, "
+                                   "not by ingest cadence.")
 
     def test_close_is_idempotent(self):
         muxer = MkvMuxer(

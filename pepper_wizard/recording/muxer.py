@@ -45,6 +45,14 @@ class MkvMuxer:
         self._audio_sample_rate = audio_sample_rate
         self._audio_channels = audio_channels
 
+        # Audio is paced sequentially in the MKV (continuous PCM stream),
+        # anchored to the first chunk's wall-clock pts_ms so it lines up with
+        # the video track at the start. The publisher delivers chunks with
+        # variable wall-clock gaps that don't reflect real audio time, so
+        # ingest-time PTS would leave silent gaps between every chunk.
+        self._audio_first_pts_ms = None
+        self._audio_total_samples = 0
+
     def write_video_frame(self, gray_bytes, pts_ms):
         if self._closed:
             return
@@ -72,11 +80,20 @@ class MkvMuxer:
         arr = samples.reshape(1, -1)
         frame = av.AudioFrame.from_ndarray(arr, format="s16", layout=self._astream.layout)
         frame.sample_rate = self._audio_sample_rate
-        # Express pts in ms with a matching 1/1000 time_base. Matroska forces the
-        # stream's effective time_base to 1/1000 regardless of what we set, so
-        # using sample-based PTS would cause a 1/sample_rate*1000 = 1/16
-        # speed-up (audio plays 16× faster than wall clock).
-        frame.pts = int(pts_ms)
+
+        # Anchor the audio track to the first chunk's wall-clock pts_ms, then
+        # pace subsequent chunks by their actual sample count. This produces a
+        # continuous PCM stream (no click-inducing gaps from variable publisher
+        # cadence) while still syncing the start of the audio track with the
+        # video track. Wall-clock truth lives in the sidecar; the MKV is the
+        # convenience artifact.
+        if self._audio_first_pts_ms is None:
+            self._audio_first_pts_ms = int(pts_ms)
+        chunk_pts_ms = self._audio_first_pts_ms + \
+            (self._audio_total_samples * 1000) // self._audio_sample_rate
+        self._audio_total_samples += samples.size
+
+        frame.pts = chunk_pts_ms
         frame.time_base = Fraction(1, self.VIDEO_TIMEBASE_MS)
         for packet in self._astream.encode(frame):
             self._container.mux(packet)
