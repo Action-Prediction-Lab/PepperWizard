@@ -167,6 +167,7 @@ def show_main_menu(teleop_state):
     options = [
         ("t", format_talk_label(teleop_state.get('talk_mode', 'Voice'))),
         ("j", format_teleop_label(current_mode)),
+        ("r", f"Record [{'On' if teleop_state.get('record', False) else 'Off'}]"),
         ("a", format_social_label(teleop_state.get('social_mode', 'Disabled'))),
         ("s", format_tracking_label(teleop_state.get('tracking_mode', 'Head'))),
         ("w", format_robot_state_label(teleop_state.get('robot_state', 'Rest'))),
