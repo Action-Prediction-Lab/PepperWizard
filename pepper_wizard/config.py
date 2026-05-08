@@ -118,6 +118,26 @@ def load_stt_config(file_path):
         print(f"Error loading STT config from {file_path}: {e}")
         return defaults
 
+def load_recording_config(file_path):
+    """Loads recording configuration from a JSON file."""
+    defaults = {
+        "record_by_default": True,
+        "output_dir": "recordings",
+        "video_codec": "ffv1",
+        "video_pix_fmt": "yuv420p",
+        "audio_codec": "pcm_s16le",
+        "container": "mkv",
+    }
+    try:
+        with open(file_path, "r") as f:
+            user = json.load(f)
+        merged = {**defaults, **user}
+        print("Recording config loaded successfully.")
+        return merged
+    except (IOError, json.JSONDecodeError) as e:
+        print(f"Error loading recording config from {file_path}: {e}. Using defaults.")
+        return defaults
+
 class Config:
     """A class to hold the application configuration."""
     def __init__(self):
@@ -130,6 +150,7 @@ class Config:
         self.temperature_config = load_temperature_config(CONFIG_DIR / "temperature.json")
         self.stt_config = load_stt_config(CONFIG_DIR / "stt.json")
         self.llm_config = load_llm_config(CONFIG_DIR / "llm.json")
+        self.recording_config = load_recording_config(CONFIG_DIR / "recording.json")
 
 def load_config():
     """Load all configurations."""
