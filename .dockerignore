@@ -7,9 +7,10 @@ __pycache__
 *.pyo
 *.pyd
 
-# Logs and runtime data 
+# Logs and runtime data
 logs
 ollama_data
+recordings
 
 # Local tooling 
 .claude

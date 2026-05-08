@@ -109,6 +109,12 @@ def show_main_menu(teleop_state):
         else:
              return f"Robot State [<ansired>{state}</ansired>]"
 
+    def format_record_label(is_recording):
+        if is_recording:
+            return f"Record [<ansired><b>● REC</b></ansired>]"
+        else:
+             return f"Record [<ansibrightblack>○ Off</ansibrightblack>]"
+
     def format_tracking_label(mode):
         if mode == "Head":
              return f"Tracking Mode [<ansimagenta>{mode}</ansimagenta>]"
@@ -176,6 +182,7 @@ def show_main_menu(teleop_state):
         options.append(("tr", "Track Object"))
     options.extend([
         ("tm", "Joint Temperatures"),
+        ("r", format_record_label(teleop_state.get('record', False))),
         ("exit", "Exit Application"),
     ])
     

@@ -1,0 +1,11 @@
+{
+    "record_by_default": false,
+    "output_dir": "recordings",
+    "video_codec": "ffv1",
+    "video_pix_fmt": "yuv420p",
+    "audio_codec": "pcm_s16le",
+    "container": "mkv",
+    "video_resolution": [320, 240],
+    "audio_sample_rate": 16000,
+    "audio_channels": 1
+}
