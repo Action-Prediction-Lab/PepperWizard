@@ -56,6 +56,44 @@ class TestMkvMuxer(unittest.TestCase):
             stream_types = {s.type for s in streams}
             self.assertSetEqual(stream_types, {"video", "audio"})
 
+    def test_mkv_duration_matches_pts_span(self):
+        """Regression: dropping rate=30 from add_stream restored correct duration.
+
+        Previously the stream was created with rate=30 which fixed time_base to
+        1/30s and silently overrode our 1/1000 setting; PTS in ms were treated
+        as 1/30s units and the recording played back at 1/33 speed.
+        """
+        muxer = MkvMuxer(
+            path=self.path,
+            video_codec="ffv1",
+            video_pix_fmt="yuv420p",
+            audio_codec="pcm_s16le",
+            video_size=(320, 240),
+            audio_sample_rate=16000,
+            audio_channels=1,
+        )
+        # 50 frames spanning exactly 5000 ms (last frame pts == 5000).
+        for i in range(50):
+            frame_bytes = (np.ones((240, 320), dtype=np.uint8) * 50).tobytes()
+            muxer.write_video_frame(frame_bytes, pts_ms=i * 100)
+        # Matching audio: chunks every 170 ms across 5 s.
+        for i in range(30):
+            samples = np.full(2720, 50, dtype=np.int16)
+            muxer.write_audio_chunk(samples.tobytes(), pts_ms=i * 170)
+        muxer.close()
+
+        with av.open(self.path) as container:
+            # Stream duration in seconds should be ~5 s (the PTS span), not 5*33 s.
+            for s in container.streams:
+                if s.duration is None or s.time_base is None:
+                    continue
+                dur_s = float(s.duration * s.time_base)
+                self.assertLess(dur_s, 10.0,
+                                f"{s.type} stream duration {dur_s:.1f}s implies PTS were "
+                                "interpreted in the wrong time_base.")
+                self.assertGreater(dur_s, 4.0,
+                                   f"{s.type} stream duration {dur_s:.1f}s is too short.")
+
     def test_close_is_idempotent(self):
         muxer = MkvMuxer(
             path=self.path,

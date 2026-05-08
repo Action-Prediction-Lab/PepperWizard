@@ -27,7 +27,11 @@ class MkvMuxer:
 
         self._container = av.open(path, mode="w", format="matroska")
 
-        self._vstream = self._container.add_stream(video_codec, rate=30)
+        # Variable-rate video: do NOT pass `rate=` (which fixes time_base to 1/rate
+        # and causes PyAV/matroska to ignore subsequent time_base overrides — that's
+        # what made early recordings play back at 1/33 speed).  Set time_base
+        # explicitly to 1ms so frame.pts in ms matches stream time_base.
+        self._vstream = self._container.add_stream(video_codec)
         self._vstream.width, self._vstream.height = video_size
         self._vstream.pix_fmt = video_pix_fmt
         self._vstream.time_base = Fraction(1, self.VIDEO_TIMEBASE_MS)
