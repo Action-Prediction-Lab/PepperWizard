@@ -24,22 +24,23 @@ from .sidecar import SidecarWriter
 from .video_sink import VideoSink
 
 
-VIDEO_RES_W = 320
-VIDEO_RES_H = 240
-AUDIO_SAMPLE_RATE = 16000
-AUDIO_CHANNELS = 1
-
-
 class Recorder:
     def __init__(self, config, session_id, video_address, audio_address,
                  clock_sync_url=None):
         self._config = dict(config)
-        # session_id is optional. When not set, file names omit the prefix and
-        # use the timestamp alone (matches the logger's behaviour for log files).
+        # session_id is optional.
         self._session_id = session_id or None
         self._video_address = video_address
         self._audio_address = audio_address
         self._clock_sync_url = clock_sync_url
+
+        # Hardware-derived stream parameters live in recording.json so the
+        # operator sees what the recorder is configured to capture without
+        # cracking open the source. Defaults in load_recording_config().
+        res = self._config.get("video_resolution", [320, 240])
+        self._video_res_w, self._video_res_h = int(res[0]), int(res[1])
+        self._audio_sample_rate = int(self._config.get("audio_sample_rate", 16000))
+        self._audio_channels = int(self._config.get("audio_channels", 1))
 
         self._started = False
         self._stopped = False
@@ -92,9 +93,9 @@ class Recorder:
             video_codec=self._config["video_codec"],
             video_pix_fmt=self._config["video_pix_fmt"],
             audio_codec=self._config["audio_codec"],
-            video_size=(VIDEO_RES_W, VIDEO_RES_H),
-            audio_sample_rate=AUDIO_SAMPLE_RATE,
-            audio_channels=AUDIO_CHANNELS,
+            video_size=(self._video_res_w, self._video_res_h),
+            audio_sample_rate=self._audio_sample_rate,
+            audio_channels=self._audio_channels,
         )
         self._sidecar = SidecarWriter(self._paths["jsonl"])
         self._sidecar.write_header({
@@ -102,8 +103,13 @@ class Recorder:
             "recording_start_utc_ns": self._t0_ns,
             "session_id": self._session_id,
             "clock_sync": clock_sync,
-            "video": {"address": self._video_address, "resolution": [VIDEO_RES_W, VIDEO_RES_H], "format": "y8"},
-            "audio": {"address": self._audio_address, "sample_rate": AUDIO_SAMPLE_RATE, "channels": AUDIO_CHANNELS, "dtype": "int16"},
+            "video": {"address": self._video_address,
+                      "resolution": [self._video_res_w, self._video_res_h],
+                      "format": "y8"},
+            "audio": {"address": self._audio_address,
+                      "sample_rate": self._audio_sample_rate,
+                      "channels": self._audio_channels,
+                      "dtype": "int16"},
         })
 
         self._video_q = queue.Queue()

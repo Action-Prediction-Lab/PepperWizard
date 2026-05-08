@@ -27,10 +27,9 @@ class MkvMuxer:
 
         self._container = av.open(path, mode="w", format="matroska")
 
-        # Variable-rate video: do NOT pass `rate=` (which fixes time_base to 1/rate
-        # and causes PyAV/matroska to ignore subsequent time_base overrides — that's
-        # what made early recordings play back at 1/33 speed).  Set time_base
-        # explicitly to 1ms so frame.pts in ms matches stream time_base.
+        # Variable-rate video: do NOT pass `rate=` (which fixes time_base to 1/rate)
+        # and causes PyAV/matroska to ignore subsequent time_base overrides 
+        # Set time_base explicitly to 1ms so frame.pts in ms matches stream time_base.
         self._vstream = self._container.add_stream(video_codec)
         self._vstream.width, self._vstream.height = video_size
         self._vstream.pix_fmt = video_pix_fmt
@@ -49,7 +48,7 @@ class MkvMuxer:
         # anchored to the first chunk's wall-clock pts_ms so it lines up with
         # the video track at the start. The publisher delivers chunks with
         # variable wall-clock gaps that don't reflect real audio time, so
-        # ingest-time PTS would leave silent gaps between every chunk.
+        # ingest-time PTS previously left silent gaps between every chunk.
         self._audio_first_pts_ms = None
         self._audio_total_samples = 0
 
@@ -62,10 +61,9 @@ class MkvMuxer:
         arr = np.frombuffer(gray_bytes, dtype=np.uint8).reshape((h, w))
         frame = av.VideoFrame.from_ndarray(arr, format="gray")
         frame = frame.reformat(format=self._vstream.pix_fmt)
-        # CRITICAL: pin frame.time_base explicitly. Without this, PyAV treats
+        # CRITICAL: pin frame.time_base explicitly. Without doing so PyAV treats
         # the frame's pts in the codec's default rate (24fps → 1/24s) then
-        # rescales to the stream's 1/1000s, multiplying every pts by ~41.67×
-        # (a 30s recording plays back as 1250s).
+        # rescales to the stream's 1/1000s.
         frame.pts = int(pts_ms)
         frame.time_base = Fraction(1, self.VIDEO_TIMEBASE_MS)
         for packet in self._vstream.encode(frame):
@@ -82,11 +80,7 @@ class MkvMuxer:
         frame.sample_rate = self._audio_sample_rate
 
         # Anchor the audio track to the first chunk's wall-clock pts_ms, then
-        # pace subsequent chunks by their actual sample count. This produces a
-        # continuous PCM stream (no click-inducing gaps from variable publisher
-        # cadence) while still syncing the start of the audio track with the
-        # video track. Wall-clock truth lives in the sidecar; the MKV is the
-        # convenience artifact.
+        # pace subsequent chunks by their actual sample count. 
         if self._audio_first_pts_ms is None:
             self._audio_first_pts_ms = int(pts_ms)
         chunk_pts_ms = self._audio_first_pts_ms + \

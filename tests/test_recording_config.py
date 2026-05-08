@@ -38,6 +38,9 @@ class TestLoadRecordingConfig(unittest.TestCase):
             self.assertEqual(cfg["video_pix_fmt"], "yuv420p")
             self.assertEqual(cfg["audio_codec"], "pcm_s16le")
             self.assertEqual(cfg["container"], "mkv")
+            self.assertEqual(cfg["video_resolution"], [320, 240])
+            self.assertEqual(cfg["audio_sample_rate"], 16000)
+            self.assertEqual(cfg["audio_channels"], 1)
         finally:
             os.unlink(path)
 

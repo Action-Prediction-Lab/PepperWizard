@@ -61,9 +61,6 @@ class TestClockSyncProbe(unittest.TestCase):
         self.assertLess(abs(result["robot_offset_ns"]), 5_000_000)
 
     def test_positive_offset(self):
-        # Server clock runs `injected` ahead of wizard. By the spec convention
-        # wizard_utc_ns ≈ robot_clock_ns + robot_offset_ns, the estimate must
-        # therefore be ≈ -injected (subtract the server-ahead bias to recover wizard).
         injected = 50_000_000
         shim = _FakeShim(offset_ns=injected, delay_s=0.002)
         try:

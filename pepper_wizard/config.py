@@ -127,6 +127,9 @@ def load_recording_config(file_path):
         "video_pix_fmt": "yuv420p",
         "audio_codec": "pcm_s16le",
         "container": "mkv",
+        "video_resolution": [320, 240],
+        "audio_sample_rate": 16000,
+        "audio_channels": 1,
     }
     try:
         with open(file_path, "r") as f:

@@ -63,7 +63,7 @@ class CommandHandler:
         self.robot_client = robot_client
         self.config = config
         self.verbose = verbose
-        self.recorder = recorder  # RecordingController, optional
+        self.recorder = recorder 
         self.teleop_thread = None
         self.tracking_modes = ["Head", "WholeBody", "Move"]
         self.current_mode_index = 0
