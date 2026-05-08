@@ -59,10 +59,11 @@ class ZMQCommandListener(threading.Thread):
 
 class CommandHandler:
     """Handles user commands and dispatches them to the correct functions."""
-    def __init__(self, robot_client, config, verbose=False):
+    def __init__(self, robot_client, config, verbose=False, recorder=None):
         self.robot_client = robot_client
         self.config = config
         self.verbose = verbose
+        self.recorder = recorder  # RecordingController, optional
         self.teleop_thread = None
         self.tracking_modes = ["Head", "WholeBody", "Move"]
         self.current_mode_index = 0
@@ -144,6 +145,13 @@ class CommandHandler:
                       print("!!! Social State Enabled: Deactivating Tracking Override...")
                       self.tracker.set_target(None)
                       self.suppressed_social_state = False
+        elif command == 'r':
+            if self.recorder is None:
+                print("Recorder not configured.")
+            else:
+                self.recorder.toggle()
+                if teleop_state is not None:
+                    teleop_state['record'] = self.recorder.is_recording
         elif command == 't':
             talk_mode = teleop_state.get('talk_mode', 'Voice') if teleop_state else 'Voice'
             if talk_mode == 'Voice':
