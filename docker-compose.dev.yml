@@ -93,10 +93,14 @@ services:
       - TRANSFORMERS_OFFLINE=1
       - PYTHONPATH=/usr/src/app:/usr/src/PepperBox/py3-naoqi-bridge:/usr/src/PepperPerception
     depends_on:
-      - pepper-robot-env
-      - proprioception-service
-      - dualshock-publisher
-      - stt-service
+      pepper-robot-env:
+        condition: service_started
+      proprioception-service:
+        condition: service_started
+      dualshock-publisher:
+        condition: service_started
+      stt-service:
+        condition: service_healthy
     volumes:
       - .:/usr/src/app
       - ../PepperBox/py3-naoqi-bridge:/usr/src/PepperBox/py3-naoqi-bridge
