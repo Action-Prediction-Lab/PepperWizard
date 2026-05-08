@@ -1,5 +1,5 @@
 {
-    "record_by_default": true,
+    "record_by_default": false,
     "output_dir": "recordings",
     "video_codec": "ffv1",
     "video_pix_fmt": "yuv420p",

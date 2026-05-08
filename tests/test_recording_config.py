@@ -32,7 +32,7 @@ class TestLoadRecordingConfig(unittest.TestCase):
             path = f.name
         try:
             cfg = load_recording_config(path)
-            self.assertTrue(cfg["record_by_default"])
+            self.assertFalse(cfg["record_by_default"])
             self.assertEqual(cfg["output_dir"], "recordings")
             self.assertEqual(cfg["video_codec"], "ffv1")
             self.assertEqual(cfg["video_pix_fmt"], "yuv420p")
@@ -43,7 +43,7 @@ class TestLoadRecordingConfig(unittest.TestCase):
 
     def test_defaults_when_file_missing(self):
         cfg = load_recording_config("/nonexistent/path/recording.json")
-        self.assertTrue(cfg["record_by_default"])
+        self.assertFalse(cfg["record_by_default"])
         self.assertEqual(cfg["video_codec"], "ffv1")
 
 

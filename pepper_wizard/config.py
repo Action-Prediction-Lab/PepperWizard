@@ -121,7 +121,7 @@ def load_stt_config(file_path):
 def load_recording_config(file_path):
     """Loads recording configuration from a JSON file."""
     defaults = {
-        "record_by_default": True,
+        "record_by_default": False,
         "output_dir": "recordings",
         "video_codec": "ffv1",
         "video_pix_fmt": "yuv420p",
