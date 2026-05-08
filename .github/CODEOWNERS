@@ -1,0 +1,3 @@
+# Sole gatekeeper for the repo. Any PR touching any file requires a review
+# from @jwgcurrie before it can merge (enforced via main branch protection).
+* @jwgcurrie
