@@ -56,12 +56,14 @@ class TestMkvMuxer(unittest.TestCase):
             stream_types = {s.type for s in streams}
             self.assertSetEqual(stream_types, {"video", "audio"})
 
-    def test_mkv_duration_matches_pts_span(self):
-        """Regression: dropping rate=30 from add_stream restored correct duration.
+    def test_mkv_packet_pts_match_input_pts(self):
+        """Regression: previously frame.pts (intended in ms) was reinterpreted in
+        the codec's default frame rate (1/24s or 1/30s) and rescaled to the
+        stream's 1/1000s, multiplying every recorded pts by ~33-42×. VLC played
+        the result at 1/33 speed, looking exactly like a starving feed.
 
-        Previously the stream was created with rate=30 which fixed time_base to
-        1/30s and silently overrode our 1/1000 setting; PTS in ms were treated
-        as 1/30s units and the recording played back at 1/33 speed.
+        We assert that the LAST video and audio packet's pts (in stream time_base)
+        is within tolerance of the LAST input pts_ms — i.e. no silent rescaling.
         """
         muxer = MkvMuxer(
             path=self.path,
@@ -72,27 +74,39 @@ class TestMkvMuxer(unittest.TestCase):
             audio_sample_rate=16000,
             audio_channels=1,
         )
-        # 50 frames spanning exactly 5000 ms (last frame pts == 5000).
-        for i in range(50):
+        N_FRAMES = 50
+        FRAME_DT_MS = 100
+        last_video_pts_ms = (N_FRAMES - 1) * FRAME_DT_MS  # 4900 ms
+        for i in range(N_FRAMES):
             frame_bytes = (np.ones((240, 320), dtype=np.uint8) * 50).tobytes()
-            muxer.write_video_frame(frame_bytes, pts_ms=i * 100)
-        # Matching audio: chunks every 170 ms across 5 s.
-        for i in range(30):
+            muxer.write_video_frame(frame_bytes, pts_ms=i * FRAME_DT_MS)
+        N_CHUNKS = 30
+        CHUNK_DT_MS = 170
+        last_audio_pts_ms = (N_CHUNKS - 1) * CHUNK_DT_MS  # 4930 ms
+        for i in range(N_CHUNKS):
             samples = np.full(2720, 50, dtype=np.int16)
-            muxer.write_audio_chunk(samples.tobytes(), pts_ms=i * 170)
+            muxer.write_audio_chunk(samples.tobytes(), pts_ms=i * CHUNK_DT_MS)
         muxer.close()
 
         with av.open(self.path) as container:
-            # Stream duration in seconds should be ~5 s (the PTS span), not 5*33 s.
+            last_pts = {"video": None, "audio": None}
+            time_base = {"video": None, "audio": None}
             for s in container.streams:
-                if s.duration is None or s.time_base is None:
-                    continue
-                dur_s = float(s.duration * s.time_base)
-                self.assertLess(dur_s, 10.0,
-                                f"{s.type} stream duration {dur_s:.1f}s implies PTS were "
-                                "interpreted in the wrong time_base.")
-                self.assertGreater(dur_s, 4.0,
-                                   f"{s.type} stream duration {dur_s:.1f}s is too short.")
+                time_base[s.type] = s.time_base
+            for packet in container.demux():
+                if packet.pts is not None and packet.stream.type in last_pts:
+                    last_pts[packet.stream.type] = packet.pts
+
+        # Assert last packet's seconds-equivalent matches input within 200ms.
+        v_seconds = float(last_pts["video"] * time_base["video"])
+        a_seconds = float(last_pts["audio"] * time_base["audio"])
+        self.assertAlmostEqual(v_seconds, last_video_pts_ms / 1000.0, delta=0.2,
+                               msg=f"video last pts {v_seconds:.3f}s does not match "
+                                   f"input {last_video_pts_ms/1000.0:.3f}s — "
+                                   "PTS were silently rescaled.")
+        self.assertAlmostEqual(a_seconds, last_audio_pts_ms / 1000.0, delta=0.2,
+                               msg=f"audio last pts {a_seconds:.3f}s does not match "
+                                   f"input {last_audio_pts_ms/1000.0:.3f}s.")
 
     def test_close_is_idempotent(self):
         muxer = MkvMuxer(

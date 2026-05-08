@@ -54,7 +54,12 @@ class MkvMuxer:
         arr = np.frombuffer(gray_bytes, dtype=np.uint8).reshape((h, w))
         frame = av.VideoFrame.from_ndarray(arr, format="gray")
         frame = frame.reformat(format=self._vstream.pix_fmt)
+        # CRITICAL: pin frame.time_base explicitly. Without this, PyAV treats
+        # the frame's pts in the codec's default rate (24fps → 1/24s) then
+        # rescales to the stream's 1/1000s, multiplying every pts by ~41.67×
+        # (a 30s recording plays back as 1250s).
         frame.pts = int(pts_ms)
+        frame.time_base = Fraction(1, self.VIDEO_TIMEBASE_MS)
         for packet in self._vstream.encode(frame):
             self._container.mux(packet)
 
@@ -67,7 +72,12 @@ class MkvMuxer:
         arr = samples.reshape(1, -1)
         frame = av.AudioFrame.from_ndarray(arr, format="s16", layout=self._astream.layout)
         frame.sample_rate = self._audio_sample_rate
-        frame.pts = int(pts_ms) * self._audio_sample_rate // 1000
+        # Express pts in ms with a matching 1/1000 time_base. Matroska forces the
+        # stream's effective time_base to 1/1000 regardless of what we set, so
+        # using sample-based PTS would cause a 1/sample_rate*1000 = 1/16
+        # speed-up (audio plays 16× faster than wall clock).
+        frame.pts = int(pts_ms)
+        frame.time_base = Fraction(1, self.VIDEO_TIMEBASE_MS)
         for packet in self._astream.encode(frame):
             self._container.mux(packet)
 
