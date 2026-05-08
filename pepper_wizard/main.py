@@ -1,10 +1,12 @@
 # Main application entry point
 import argparse
+import signal
 import sys
 from . import cli
 from .config import load_config
 from .robot_client import RobotClient
 from .command_handler import CommandHandler
+from .recording import RecordingController
 
 from prompt_toolkit import PromptSession
 
@@ -39,7 +41,16 @@ def main():
 
     print(" --- PepperWizard Ready ---")
 
-    command_handler = CommandHandler(robot_client, config, verbose=args.verbose)
+    recording_controller = RecordingController(
+        config=config.recording_config,
+        session_id=args.session_id,
+        video_address="tcp://localhost:5559",
+        audio_address="tcp://localhost:5563",
+        clock_sync_url=f"http://{args.proxy_ip}:{args.proxy_port}/time",
+    )
+
+    command_handler = CommandHandler(robot_client, config, verbose=args.verbose,
+                                     recorder=recording_controller)
     
     # Teleop State (shared between CLI menu and CommandHandler)
     default_mode = config.teleop_config.get("default_mode", "Joystick")
@@ -51,6 +62,7 @@ def main():
 
     initial_tracking_mode = robot_client.get_tracking_mode() or "Head"
 
+    record_by_default = config.recording_config.get("record_by_default", False)
     teleop_state = {
         "mode": default_mode,
         "social_mode": social_mode_label,
@@ -58,7 +70,17 @@ def main():
         "tracking_mode": initial_tracking_mode,
         "battery": None,
         "tracker_available": command_handler.tracker is not None,
+        "record": record_by_default,
     }
+    if record_by_default:
+        recording_controller.toggle()
+
+    def _finalise_recording_on_signal(_sig, _frame):
+        paths = recording_controller.stop_if_recording()
+        if paths:
+            print(f"Recording finalised on signal: {paths['mkv']}")
+        raise SystemExit(0)
+    signal.signal(signal.SIGTERM, _finalise_recording_on_signal)
 
     # Start robot status polling thread
     import threading
@@ -111,8 +133,11 @@ def main():
         print("\nCaught KeyboardInterrupt. Shutting down...")
         logger.info("ApplicationShutdown", {"reason": "KeyboardInterrupt"})
     finally:
+        paths = recording_controller.stop_if_recording()
+        if paths:
+            print(f"Recording finalised: {paths['mkv']}")
         command_handler.cleanup()
-    
+
     print(" --- Exiting Pepper Wizard ---")
 
 if __name__ == "__main__":
