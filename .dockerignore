@@ -1,0 +1,28 @@
+# Caches and version control
+.git
+.git/**
+__pycache__
+**/__pycache__
+*.pyc
+*.pyo
+*.pyd
+
+# Logs and runtime data 
+logs
+ollama_data
+
+# Local tooling 
+.claude
+docs
+roadmap
+assets
+
+# OS / editor scratch
+.DS_Store
+*.swp
+*.swo
+
+# Generated artefacts
+*.png
+*.csv
+session_*.jsonl

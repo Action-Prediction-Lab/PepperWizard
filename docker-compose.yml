@@ -34,8 +34,10 @@ services:
       - PYTHONPATH=/usr/src/app
     command: [ "python", "-m", "pepper_wizard.main", "--proxy-ip", "localhost", "--proxy-port", "5000" ]
     depends_on:
-      - pepper-robot-env
-      - stt-service
+      pepper-robot-env:
+        condition: service_started
+      stt-service:
+        condition: service_healthy
     stdin_open: true
     tty: true
     network_mode: host
@@ -44,7 +46,9 @@ services:
     restart: on-failure
 
   stt-service:
-    build: ./stt-service
+    build:
+      context: .
+      dockerfile: stt-service/Dockerfile
     image: pepper-stt:latest
     network_mode: host
     volumes:
@@ -55,4 +59,13 @@ services:
     environment:
       - PULSE_SERVER=unix:/run/user/1000/pulse/native
       - PYTHONUNBUFFERED=1
+      - HF_HOME=/opt/whisper-cache
+    healthcheck:
+      # Round-trips a real ZMQ ping so pepper-wizard only starts after STT
+      # is answering on :5562 (and the Whisper model is loaded).
+      test: ["CMD", "python", "-c", "import sys, zmq; ctx=zmq.Context.instance(); s=ctx.socket(zmq.REQ); s.setsockopt(zmq.RCVTIMEO,2000); s.setsockopt(zmq.SNDTIMEO,2000); s.setsockopt(zmq.LINGER,0); s.connect('tcp://localhost:5562'); s.send_json({'action':'ping'}); sys.exit(0 if s.recv_json().get('status')=='ok' else 1)"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+      start_period: 30s
     restart: on-failure
