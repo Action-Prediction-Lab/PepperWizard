@@ -24,7 +24,7 @@ services:
       - ../PepperBox/src:/home/pepperdev/src                 # sim shim + setup_wizard (live editing)
       - ../PepperBox/.qibullet:/home/pepperdev/.qibullet     # persist qibullet asset cache across `compose down`
       - ../PepperBox/entrypoint.sh:/home/pepperdev/entrypoint.sh:ro  # sibling's sim/physical-switching entrypoint
-      - ${HOME}/.pepperbox/pynaoqi-python2.7-2.5.7.1-linux64:/opt/pynaoqi-python2.7-2.5.7.1-linux64:ro  # proprietary SDK lives on host, never in image; populated by PepperBox/setup.sh
+      - ${HOME}/.pepperbox/pynaoqi-python2.7-2.5.7.1-linux64:/opt/pynaoqi-python2.7-2.5.7.1-linux64:ro  # proprietary SDK lives on host, not in image; populated by PepperBox/setup.sh
     environment:
       - DISPLAY=${DISPLAY}
       - QIBULLET_GUI=${QIBULLET_GUI:-false}                  # headless by default; set QIBULLET_GUI=true for the pybullet window
