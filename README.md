@@ -2,12 +2,12 @@
 
 # PepperWizard
 
-PepperWizard is a Python 3 command-line application for teleoperating the SoftBank Pepper robot. It provides an interactive TUI for voice interaction, teleop, and scripted behaviours, backed by a Dockerised NAOqi bridge.
+PepperWizard is a Python 3 command-line application for teleoperating the SoftBank Pepper robot. It provides an interactive TUI for verbal interaction, teleoperation, locomotion, visual-servoing, recording video/audio streams, and scripted behaviours.
 
 ## Features
 
 *   **Modern Bridge Architecture:** Integrates with `PepperBox` to wrap the legacy Python 2.7 / NAOqi SDK in a Docker container, so your code stays in Python 3.
-*   **Self-contained MVP:** Three-service compose runs on any Linux + Docker host that can reach the robot on the network. Optional services (joystick, vision tracking, proprioception) live in a developer overlay.
+*   **Self-contained MVP:** Three-service compose runs on any Linux + Docker host that can reach the robot on the network. Optional services (joystick, vision servoing, proprioception) live in a developer overlay.
 *   **Talk Modes:** A unified interface for speech and animation, with **push-to-talk voice input** (CPU Whisper), **slash-command autocomplete**, **spellcheck**, and **emoticon animation triggers**.
 *   **Teleop:** Keyboard by default; joystick (DualShock via [Dualshock-ZMQ](https://github.com/Action-Prediction-Lab/Dualshock-ZMQ)) when the dev overlay is enabled.
 *   **Experimental Logging:** Timestamped JSONL logging of all interactions.

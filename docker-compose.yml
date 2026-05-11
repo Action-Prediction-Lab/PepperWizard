@@ -3,7 +3,7 @@
 # This compose does NOT require sibling checkouts of PepperBox or
 # PepperPerception. `pepper-robot-env` uses the published NAOqi-bridge image
 # and bind-mounts the user-supplied pynaoqi SDK from $HOME/.pepperbox; that
-# directory is populated by running `./setup.sh` once. Tracking and
+# directos, proprry is populated by running `./setup.sh` once. Tracking and
 # proprioception services are optional and live in `docker-compose.dev.yml`,
 # enable them with:
 #

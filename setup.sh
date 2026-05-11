@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Prepare PepperBox for physical-robot use by ensuring the SoftBank Robotics
+# Prepare PepperWizard for physical-robot use by ensuring the SoftBank Robotics
 # pynaoqi SDK is available locally. The SDK is proprietary and never built into
 # the image; it lives under $HOME/.pepperbox on the user's machine and is
 # bind-mounted into the container at runtime.
