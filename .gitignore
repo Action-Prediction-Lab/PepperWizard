@@ -38,3 +38,6 @@ roadmap/
 
 # Images
 *.png
+
+# Recordings from sessions
+recordings/
