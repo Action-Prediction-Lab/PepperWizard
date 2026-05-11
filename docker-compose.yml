@@ -1,14 +1,18 @@
 # MVP stack for PepperWizard → physical Pepper robot.
 #
-# This compose is self-contained: it does NOT require sibling checkouts of
-# PepperBox or PepperPerception. `pepper-robot-env` uses the baked-in NAOqi
-# shim from the published image; `pepper-wizard` pip-installs the bridge at
-# build time (see Dockerfile). Tracking and proprioception services are
-# optional and live in `docker-compose.dev.yml` — enable them with:
+# This compose does NOT require sibling checkouts of PepperBox or
+# PepperPerception. `pepper-robot-env` uses the published NAOqi-bridge image
+# and bind-mounts the user-supplied pynaoqi SDK from $HOME/.pepperbox; that
+# directory is populated by running `./setup.sh` once. Tracking and
+# proprioception services are optional and live in `docker-compose.dev.yml`,
+# enable them with:
 #
 #   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
 #
-# Robot connection: copy `robot.env.example` to `robot.env` and set NAOQI_IP.
+# First-run setup:
+#   ./setup.sh                                       # one-time, fetches pynaoqi
+#   cp robot.env.example robot.env && $EDITOR robot.env
+#   docker compose up
 
 services:
   pepper-robot-env:
@@ -16,11 +20,12 @@ services:
     network_mode: host
     volumes:
       - ./robot.env:/home/pepperdev/py3-naoqi-bridge/robot.env
+      - ${HOME}/.pepperbox/pynaoqi-python2.7-2.5.7.1-linux64:/opt/pynaoqi-python2.7-2.5.7.1-linux64:ro
     env_file:
       - robot.env
     environment:
       - PYTHONUNBUFFERED=1
-    command: [ "/home/pepperdev/.pyenv/versions/2.7.18/bin/python", "/home/pepperdev/py3-naoqi-bridge/shim_server.py" ]
+    command: [ "/home/pepperdev/entrypoint.sh" ]
     restart: on-failure
 
   pepper-wizard:

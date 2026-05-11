@@ -43,9 +43,17 @@ The `pepper-wizard` application itself is structured as follows:
 
 > **OS Compatibility**: PepperWizard uses `network_mode: host` and host PulseAudio for the microphone, so it currently requires **Linux**. macOS and Windows are on the long-term roadmap but are not supported for the MVP.
 
-> The NAOqi bridge runs from the public `jwgcurrie/pepper-box` image — Docker pulls it automatically on first run.
+> The NAOqi bridge runs from the public `jwgcurrie/pepper-box` image. The proprietary `pynaoqi` SDK isn't bundled; you supply it once at runtime via the bundled `./setup.sh` script (step 1 below).
 
-### 1. Point PepperWizard at your robot
+### 1. Install the NAOqi SDK locally
+
+```bash
+./setup.sh
+```
+
+This fetches the SDK from Aldebaran's CDN (with a Wayback Machine fallback), verifies the SHA256, and extracts it to `~/.pepperbox/pynaoqi-python2.7-2.5.7.1-linux64/`. `docker-compose.yml` bind-mounts that directory into the bridge container at runtime. Idempotent; re-running after success is a no-op.
+
+### 2. Point PepperWizard at your robot
 
 The connection is configured via a `robot.env` file. Copy the example and edit if your robot isn't at the lab default:
 
@@ -59,7 +67,7 @@ NAOQI_IP=192.168.123.50   # robot IP (use 127.0.0.1 for a local NAOqi sim)
 NAOQI_PORT=9559           # 9559 on physical robots, sim-specific otherwise
 ```
 
-### 2. Build and run (MVP)
+### 3. Build and run (MVP)
 
 ```bash
 docker compose up -d --build                 # build images and start the background services
@@ -73,7 +81,7 @@ Teleop defaults to **Keyboard** mode; tracking entries are hidden if the optiona
 
 > **Why the `stop` step?** `docker compose up` instantiates `pepper-wizard` as a background container that binds port 5561 for external commands. `docker compose run` creates a second interactive container that needs the same port. Stopping the first frees it for the second; both use `network_mode: host`.
 
-### 3. Developer stack (optional)
+### 4. Developer stack (optional)
 
 The developer overlay (`docker-compose.dev.yml`) adds joystick teleop, proprioception, optional GPU vision tracking, and swaps the physical-robot shim for the **qiBullet simulator** baked into `pepper-box:latest`. It requires a sibling checkout of [`PepperBox`](https://github.com/Action-Prediction-Lab/PepperBox); [`PepperPerception`](https://github.com/Action-Prediction-Lab/PepperPerception) is optional (the bind-mount is auto-created empty if absent, and the perception service itself is gated behind `--profile gpu`).
 
