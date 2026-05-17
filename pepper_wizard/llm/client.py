@@ -1,5 +1,9 @@
 import os
 from collections import deque
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .config_watcher import LLMConfigWatcher
 
 
 class LLMUnavailable(Exception):
@@ -7,24 +11,21 @@ class LLMUnavailable(Exception):
 
 
 class LLMClient:
-    """Anthropic-backed dialogue client with rolling history.
+    """Anthropic-backed dialogue client backed by a hot-swappable config watcher.
 
-    Lazy-imports `anthropic` so that the rest of PepperWizard keeps importing
-    even when the SDK isn't installed (matches the perception/tracking
-    convention).
+    The watcher is the ground truth for `model`, `system_prompt`, `max_tokens`,
+    `temperature`, and `history_turns`. Each `reply()` call reads the current
+    config from the watcher, so edits to `llm.json` take effect on the next turn.
     """
 
-    def __init__(self, config):
-        self.model = config.get("model", "claude-haiku-4-5")
-        self.system_prompt = config.get(
-            "system_prompt",
-            "You are Pepper, a humanoid robot. Keep replies brief and conversational.",
-        )
-        self.max_tokens = config.get("max_tokens", 256)
-        self.temperature = config.get("temperature", 0.7)
+    def __init__(self, watcher: "LLMConfigWatcher"):
+        self._watcher = watcher
 
-        history_turns = config.get("history_turns", 10)
-        self._history = deque(maxlen=history_turns * 2)
+        # Initialise with the default maxlen; reply() will resize on first call
+        # if the watcher's history_turns differs. We do not call watcher.current()
+        # here so that the watcher call-count seen by callers reflects only
+        # active turns, not construction overhead.
+        self._history = deque(maxlen=10 * 2)
 
         api_key = os.environ.get("ANTHROPIC_API_KEY")
         if not api_key:
@@ -43,15 +44,28 @@ class LLMClient:
 
         self._client = anthropic.Anthropic(api_key=api_key)
 
-    def reply(self, user_text):
+    @property
+    def model(self) -> str:
+        return self._watcher.current().get("model", "claude-haiku-4-5")
+
+    def reply(self, user_text: str) -> str:
         """Send `user_text` with the rolling history and return the reply."""
+        config = self._watcher.current()
+
+        desired_maxlen = config.get("history_turns", 10) * 2
+        if self._history.maxlen != desired_maxlen:
+            self._history = deque(self._history, maxlen=desired_maxlen)
+
         self._history.append({"role": "user", "content": user_text})
 
         response = self._client.messages.create(
-            model=self.model,
-            system=self.system_prompt,
-            max_tokens=self.max_tokens,
-            temperature=self.temperature,
+            model=config.get("model", "claude-haiku-4-5"),
+            system=config.get(
+                "system_prompt",
+                "You are Pepper, a humanoid robot. Keep replies brief and conversational.",
+            ),
+            max_tokens=config.get("max_tokens", 256),
+            temperature=config.get("temperature", 0.7),
             messages=list(self._history),
         )
 

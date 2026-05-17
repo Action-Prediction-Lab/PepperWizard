@@ -777,15 +777,22 @@ def voice_talk_session(robot_client, config, verbose=False):
 
 def llm_talk_session(robot_client, config, verbose=False):
     """LLM dialogue via always-on VAD on Pepper's front microphone."""
+    from pathlib import Path
     from .logger import get_logger
     from .stt_client import STTClient
     from .llm.client import LLMClient, LLMUnavailable
+    from .llm.config_watcher import LLMConfigWatcher
 
     logger = get_logger("LLMTalk")
     stt_config = config.stt_config
+    llm_config_path = Path(__file__).parent / "config" / "llm.json"
 
     try:
-        llm = LLMClient(config.llm_config)
+        watcher = LLMConfigWatcher(
+            path=llm_config_path,
+            on_change=lambda old, new: _announce_llm_reload(old, new, logger),
+        )
+        llm = LLMClient(watcher)
     except LLMUnavailable as e:
         print_formatted_text(
             HTML("<ansired>LLM unavailable: {}</ansired>").format(str(e))
@@ -937,8 +944,32 @@ def _handle_vad_event(evt, *, review_mode, llm, stt, robot_client, logger, sessi
                      robot_client=robot_client, logger=logger)
 
 
+def _announce_llm_reload(old_config: dict, new_config: dict, logger):
+    """Print and log a one-line summary of which llm.json fields changed."""
+    from html import escape
+
+    keys = set(old_config) | set(new_config)
+    changed = []
+    for key in sorted(keys):
+        if old_config.get(key) != new_config.get(key):
+            if key == "system_prompt":
+                changed.append("system_prompt")
+            else:
+                changed.append(f"{key} {old_config.get(key)!r}→{new_config.get(key)!r}")
+    if not changed:
+        return
+    summary = "config reloaded: " + ", ".join(changed)
+    print_formatted_text(HTML(f"<ansigray>{escape(summary)}</ansigray>"))
+    logger.info("LLMConfigReload", {
+        "changed": changed,
+        "old": old_config,
+        "new": new_config,
+    })
+
+
 def _dispatch_to_llm(user_text, *, source, llm, stt, robot_client, logger):
     # Mute while Pepper is speaking so stt-service ignores self-hearing.
+    # TODO - for the person interrupting pepper this needs some neance. Outside the scope of current PR. 
     stt.mute()
     logger.info("MuteStart", {})
     try:
