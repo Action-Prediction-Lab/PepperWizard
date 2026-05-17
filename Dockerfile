@@ -1,5 +1,5 @@
 # Stage 1: Get the library
-FROM jwgcurrie/pepper-box:01-26-latest AS bridge-source
+FROM ghcr.io/action-prediction-lab/pepper-box:latest AS bridge-source
 
 # Stage 2: Build the Wizard
 FROM python:3.9-slim

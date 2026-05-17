@@ -15,7 +15,7 @@
 
 services:
   pepper-robot-env:
-    image: pepper-box:latest
+    image: ghcr.io/action-prediction-lab/pepper-box:latest
     devices:
       - /dev/dri:/dev/dri                                    # GPU render nodes (AMD/Intel/NVIDIA via mesa)
     volumes:
@@ -33,7 +33,7 @@ services:
     command: [ "/home/pepperdev/entrypoint.sh" ]
 
   proprioception-service:
-    image: pepper-box:latest
+    image: ghcr.io/action-prediction-lab/pepper-box:latest
     network_mode: host
     volumes:
       - ./robot.env:/home/pepperdev/py3-naoqi-bridge/robot.env
@@ -47,7 +47,7 @@ services:
     restart: on-failure
 
   audio-publisher-service:
-    image: pepper-box:latest
+    image: ghcr.io/action-prediction-lab/pepper-box:latest
     network_mode: host
     volumes:
       - ./robot.env:/home/pepperdev/py3-naoqi-bridge/robot.env
@@ -62,7 +62,7 @@ services:
       - pepper-robot-env
 
   dualshock-publisher:
-    image: jwgcurrie/dualshock_publisher:latest
+    image: ghcr.io/action-prediction-lab/dualshock-zmq:latest
     privileged: true
     volumes:
       - /dev/input:/dev/input
@@ -72,7 +72,7 @@ services:
   perception-service:
     profiles: [ gpu ]                                        # opt-in via `--profile gpu` (requires NVIDIA runtime)
     build: ../PepperPerception
-    image: pepper-perception:latest
+    image: ghcr.io/action-prediction-lab/pepper-perception:latest
     shm_size: '2gb'
     command: [ "python", "-m", "perception_service.main", "--backend", "combined" ]
     ports:

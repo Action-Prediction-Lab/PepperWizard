@@ -1,22 +1,17 @@
-# MVP stack for PepperWizard → physical Pepper robot.
+# Basic stack for PepperWizard → Pepper robot.
 #
-# This compose does NOT require sibling checkouts of PepperBox or
-# PepperPerception. `pepper-robot-env` uses the published NAOqi-bridge image
-# and bind-mounts the user-supplied pynaoqi SDK from $HOME/.pepperbox; that
-# directos, proprry is populated by running `./setup.sh` once. Tracking and
-# proprioception services are optional and live in `docker-compose.dev.yml`,
-# enable them with:
+# Tracking and proprioception services are optional and live in `docker-compose.dev.yml`, enable them with:
 #
 #   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
 #
 # First-run setup:
-#   ./setup.sh                                       # one-time, fetches pynaoqi
+#   ./setup.sh                                       
 #   cp robot.env.example robot.env && $EDITOR robot.env
 #   docker compose up
 
 services:
   pepper-robot-env:
-    image: jwgcurrie/pepper-box:01-26-latest
+    image: ghcr.io/action-prediction-lab/pepper-box:latest
     network_mode: host
     volumes:
       - ./robot.env:/home/pepperdev/py3-naoqi-bridge/robot.env
@@ -29,8 +24,8 @@ services:
     restart: on-failure
 
   pepper-wizard:
+    image: ghcr.io/action-prediction-lab/pepper-wizard:latest
     build: .
-    image: pepper-wizard:latest
     env_file:
       - robot.env
     environment:
@@ -51,10 +46,10 @@ services:
     restart: on-failure
 
   stt-service:
+    image: ghcr.io/action-prediction-lab/pepper-stt:latest
     build:
       context: .
       dockerfile: stt-service/Dockerfile
-    image: pepper-stt:latest
     network_mode: host
     volumes:
       - ./stt-service:/app
@@ -67,7 +62,7 @@ services:
       - HF_HOME=/opt/whisper-cache
     healthcheck:
       # Round-trips a real ZMQ ping so pepper-wizard only starts after STT
-      # is answering on :5562 (and the Whisper model is loaded).
+      # is answering on :5562 (and Whisper model is loaded).
       test: ["CMD", "python", "-c", "import sys, zmq; ctx=zmq.Context.instance(); s=ctx.socket(zmq.REQ); s.setsockopt(zmq.RCVTIMEO,2000); s.setsockopt(zmq.SNDTIMEO,2000); s.setsockopt(zmq.LINGER,0); s.connect('tcp://localhost:5562'); s.send_json({'action':'ping'}); sys.exit(0 if s.recv_json().get('status')=='ok' else 1)"]
       interval: 2s
       timeout: 3s
