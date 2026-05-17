@@ -969,6 +969,7 @@ def _announce_llm_reload(old_config: dict, new_config: dict, logger):
 
 def _dispatch_to_llm(user_text, *, source, llm, stt, robot_client, logger):
     # Mute while Pepper is speaking so stt-service ignores self-hearing.
+    # TODO - for the person interrupting pepper this needs some neance. Outside the scope of current PR. 
     stt.mute()
     logger.info("MuteStart", {})
     try:

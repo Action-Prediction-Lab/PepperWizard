@@ -13,7 +13,7 @@ class LLMUnavailable(Exception):
 class LLMClient:
     """Anthropic-backed dialogue client backed by a hot-swappable config watcher.
 
-    The watcher is the source of truth for `model`, `system_prompt`, `max_tokens`,
+    The watcher is the ground truth for `model`, `system_prompt`, `max_tokens`,
     `temperature`, and `history_turns`. Each `reply()` call reads the current
     config from the watcher, so edits to `llm.json` take effect on the next turn.
     """
