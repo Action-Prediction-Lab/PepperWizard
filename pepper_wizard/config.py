@@ -103,9 +103,11 @@ def load_llm_config(file_path):
 def load_stt_config(file_path):
     """Loads speech-to-text configuration from a JSON file."""
     defaults = {
+        "engine": "whisper",
         "zmq_address": "tcp://localhost:5562",
         "review_mode": True,
-        "model_size": "base.en",
+        "whisper_model": "base.en",
+        "parakeet_model": "nvidia/parakeet-tdt-0.6b-v2",
         "sample_rate": 16000,
         "push_to_talk_key": "space",
     }

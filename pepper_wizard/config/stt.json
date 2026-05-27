@@ -1,10 +1,12 @@
 {
+    "engine": "parakeet",
     "zmq_address": "tcp://localhost:5562",
     "audio_zmq_address": "tcp://localhost:5563",
     "transcription_zmq_address": "tcp://localhost:5564",
     "review_mode": true,
     "llm_review_mode": true,
-    "model_size": "base.en",
+    "whisper_model": "base.en",
+    "parakeet_model": "nvidia/parakeet-tdt-0.6b-v2",
     "sample_rate": 16000,
     "push_to_talk_key": "space",
     "vad": {
