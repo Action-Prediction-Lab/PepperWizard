@@ -3,3 +3,5 @@ silero-vad
 sounddevice
 pyzmq
 numpy
+nemo_toolkit[asr]>=2.0
+torch>=2.1
