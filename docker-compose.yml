@@ -50,6 +50,7 @@ services:
     build:
       context: .
       dockerfile: stt-service/Dockerfile
+    runtime: ${STT_DOCKER_RUNTIME:-runc}
     network_mode: host
     volumes:
       - ./stt-service:/app
@@ -59,13 +60,15 @@ services:
     environment:
       - PULSE_SERVER=unix:/run/user/1000/pulse/native
       - PYTHONUNBUFFERED=1
-      - HF_HOME=/opt/whisper-cache
+      - HF_HOME=/opt/asr-cache
+      - NVIDIA_VISIBLE_DEVICES=${STT_GPU_DEVICES:-none}
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
     healthcheck:
       # Round-trips a real ZMQ ping so pepper-wizard only starts after STT
-      # is answering on :5562 (and Whisper model is loaded).
+      # is answering on :5562 (and the backend model is loaded).
       test: ["CMD", "python", "-c", "import sys, zmq; ctx=zmq.Context.instance(); s=ctx.socket(zmq.REQ); s.setsockopt(zmq.RCVTIMEO,2000); s.setsockopt(zmq.SNDTIMEO,2000); s.setsockopt(zmq.LINGER,0); s.connect('tcp://localhost:5562'); s.send_json({'action':'ping'}); sys.exit(0 if s.recv_json().get('status')=='ok' else 1)"]
       interval: 2s
       timeout: 3s
       retries: 15
-      start_period: 30s
+      start_period: 60s
     restart: on-failure
