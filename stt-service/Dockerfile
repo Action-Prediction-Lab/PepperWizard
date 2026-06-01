@@ -29,7 +29,7 @@ ENV HF_HOME=/opt/asr-cache
 COPY pepper_wizard/config/stt.json /tmp/stt.json
 COPY stt-service/bake_models.py stt-service/config_loader.py stt-service/vad_segmenter.py /tmp/
 RUN mkdir -p ${HF_HOME} && \
-    PYTHONPATH=/tmp python /tmp/bake_models.py /tmp/stt.json
+    PYTHONPATH=/tmp python -u /tmp/bake_models.py /tmp/stt.json
 
 COPY stt-service/. .
 

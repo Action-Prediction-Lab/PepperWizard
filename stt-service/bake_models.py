@@ -15,18 +15,25 @@ from config_loader import (
 )
 
 
+def _log(msg: str) -> None:
+    # flush=True so Docker buildkit can stream progress in real time.
+    print(f"[bake_models] {msg}", flush=True)
+
+
 def _bake_whisper(model_size: str) -> None:
+    _log(f"importing faster_whisper")
     from faster_whisper import WhisperModel
-    print(f"[bake_models] Baking whisper checkpoint: {model_size}")
+    _log(f"Baking whisper checkpoint: {model_size}")
     WhisperModel(model_size, device="cpu", compute_type="int8")
-    print(f"[bake_models] Done.")
+    _log("whisper bake done")
 
 
 def _bake_parakeet(model_name: str) -> None:
+    _log("importing nemo.collections.asr.models (slow, ~30s)")
     from nemo.collections.asr.models import ASRModel
-    print(f"[bake_models] Baking parakeet checkpoint: {model_name}")
+    _log(f"Baking parakeet checkpoint: {model_name}")
     ASRModel.from_pretrained(model_name)
-    print(f"[bake_models] Done.")
+    _log("parakeet bake done")
 
 
 def main() -> int:
