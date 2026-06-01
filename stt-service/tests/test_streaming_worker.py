@@ -28,7 +28,7 @@ def _load_fixture_bytes() -> bytes:
         return wf.readframes(wf.getnframes())
 
 
-class FakeWhisper:
+class FakeSTTBackend:
     def transcribe(self, audio, beam_size=3, language="en", vad_filter=False):
         class Seg:
             text = "hello pepper"
@@ -50,7 +50,7 @@ class TestStreamingWorker(unittest.TestCase):
             audio_addr="tcp://localhost:16563",
             pub_addr="tcp://*:16564",
             vad_config=cfg,
-            whisper=FakeWhisper(),
+            backend=FakeSTTBackend(),
             is_muted=lambda: False,
         )
         w.start()
