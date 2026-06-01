@@ -29,7 +29,7 @@ class Profile:
     def recommend(self) -> Recommendation:
         missing = []
         if self.robot.value == "missing-config":
-            missing.append("Robot endpoint not configured — set NAOQI_IP/NAOQI_PORT in robot.env")
+            missing.append("Robot endpoint not configured — set NAOQI_IP/NAOQI_PORT in .env")
         elif self.robot.value == "unreachable":
             missing.append(f"Robot unreachable — {self.robot.detail}")
         if self.audio.value == "none":

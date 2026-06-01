@@ -5,8 +5,8 @@
 #   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
 #
 # First-run setup:
-#   ./setup.sh                                       
-#   cp robot.env.example robot.env && $EDITOR robot.env
+#   ./setup.sh
+#   cp .env.example .env && $EDITOR .env
 #   docker compose up
 
 services:
@@ -14,10 +14,10 @@ services:
     image: ghcr.io/action-prediction-lab/pepper-box:latest
     network_mode: host
     volumes:
-      - ./robot.env:/home/pepperdev/py3-naoqi-bridge/robot.env
+      - ./.env:/home/pepperdev/py3-naoqi-bridge/robot.env
       - ${HOME}/.pepperbox/pynaoqi-python2.7-2.5.7.1-linux64:/opt/pynaoqi-python2.7-2.5.7.1-linux64:ro
     env_file:
-      - robot.env
+      - .env
     environment:
       - PYTHONUNBUFFERED=1
     command: [ "/home/pepperdev/entrypoint.sh" ]
@@ -27,7 +27,7 @@ services:
     image: ghcr.io/action-prediction-lab/pepper-wizard:latest
     build: .
     env_file:
-      - robot.env
+      - .env
     environment:
       - HF_HUB_OFFLINE=1
       - TRANSFORMERS_OFFLINE=1
