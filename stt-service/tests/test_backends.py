@@ -47,7 +47,8 @@ class TestParakeetBackend(unittest.TestCase):
         fake_nemo_module = mock.MagicMock()
         fake_asr_model_cls = fake_nemo_module.collections.asr.models.ASRModel
         fake_loaded = fake_asr_model_cls.from_pretrained.return_value
-        fake_on_device = fake_loaded.to.return_value
+        fake_half = fake_loaded.half.return_value
+        fake_on_device = fake_half.to.return_value
         fake_hyp = mock.MagicMock()
         fake_hyp.text = "hello pepper"
         fake_on_device.transcribe.return_value = [fake_hyp]
@@ -66,9 +67,10 @@ class TestParakeetBackend(unittest.TestCase):
             seg_list = list(segments)
 
         fake_asr_model_cls.from_pretrained.assert_called_once_with(
-            "nvidia/parakeet-tdt-0.6b-v2"
+            "nvidia/parakeet-tdt-0.6b-v2", map_location="cpu",
         )
-        fake_loaded.to.assert_called_once_with("cuda")
+        fake_loaded.half.assert_called_once_with()
+        fake_half.to.assert_called_once_with("cuda")
         fake_on_device.transcribe.assert_called_once()
         self.assertEqual(len(seg_list), 1)
         self.assertEqual(seg_list[0].text, "hello pepper")
@@ -115,7 +117,7 @@ class TestMakeBackend(unittest.TestCase):
             })
         self.assertIsInstance(backend, ParakeetBackend)
         fake_asr_model_cls.from_pretrained.assert_called_once_with(
-            "nvidia/parakeet-tdt-0.6b-v2"
+            "nvidia/parakeet-tdt-0.6b-v2", map_location="cpu",
         )
 
     def test_unknown_engine_raises(self):
