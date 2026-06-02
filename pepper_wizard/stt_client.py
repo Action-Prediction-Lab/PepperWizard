@@ -4,6 +4,8 @@ STT Client — ZMQ REQ client for communicating with the STT service.
 
 import zmq
 
+from .logger import get_logger
+
 
 class STTClient:
     """Thin wrapper around the ZMQ REQ socket to the STT service."""
@@ -23,6 +25,7 @@ class STTClient:
         self.socket.setsockopt(zmq.LINGER, 0)
         self.socket.connect(zmq_address)
         self._connected = False
+        self._log = get_logger("STTClient")
 
     def ping(self) -> bool:
         """Check if the STT service is reachable."""
@@ -46,6 +49,7 @@ class STTClient:
             return reply.get("status") == "recording"
         except zmq.ZMQError as e:
             print(f"[STTClient] Start error: {e}")
+            self._log.error("STTClientError", {"action": "start", "error": str(e)})
             return False
 
     def stop_and_transcribe(self) -> dict:
@@ -64,6 +68,7 @@ class STTClient:
             return reply
         except zmq.ZMQError as e:
             print(f"[STTClient] Stop/transcribe error: {e}")
+            self._log.error("STTClientError", {"action": "stop", "error": str(e)})
             return {"transcription": "", "error": str(e)}
 
     def enable_streaming(self) -> bool:
@@ -111,6 +116,7 @@ class STTClient:
             return reply.get("status") == expected_status
         except zmq.ZMQError as e:
             print(f"[STTClient] {action} error: {e}")
+            self._log.error("STTClientError", {"action": action, "error": str(e)})
             return False
 
     @property
