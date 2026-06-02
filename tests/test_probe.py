@@ -68,7 +68,7 @@ class TestDetectGpu(unittest.TestCase):
 class TestDetectRobot(unittest.TestCase):
     def test_missing_config(self):
         with mock.patch.object(Path, "exists", return_value=False):
-            r = detect.detect_robot(robot_env_path="/nonexistent/robot.env")
+            r = detect.detect_robot(robot_env_path="/nonexistent/.env")
         self.assertEqual(r.value, "missing-config")
 
     def test_reachable(self):

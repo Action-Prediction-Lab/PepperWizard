@@ -804,6 +804,7 @@ def llm_talk_session(robot_client, config, verbose=False):
         print_formatted_text(HTML(
             "<ansired>Error: Could not connect to the STT service.</ansired>"
         ))
+        logger.error("STTEnableFailed", {"phase": "ping"})
         stt_client.close()
         return
 
@@ -811,6 +812,7 @@ def llm_talk_session(robot_client, config, verbose=False):
         print_formatted_text(HTML(
             "<ansired>Error: Could not enable streaming on STT service.</ansired>"
         ))
+        logger.error("STTEnableFailed", {"phase": "enable_streaming"})
         stt_client.close()
         return
     logger.info("StreamingEnabled", {})
@@ -910,6 +912,7 @@ def _handle_vad_event(evt, *, review_mode, llm, stt, robot_client, logger, sessi
         print_formatted_text(
             HTML("<ansired>[VAD error] {}: {}</ansired>").format(evt.get("error", ""), evt.get("detail", ""))
         )
+        logger.error("VADError", {"error": evt.get("error", ""), "detail": evt.get("detail", "")})
         return
 
     text = (evt.get("text") or "").strip()

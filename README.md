@@ -55,17 +55,19 @@ This fetches the SDK from Aldebaran's CDN (with a Wayback Machine fallback), ver
 
 ### 2. Point PepperWizard at your robot
 
-The connection is configured via a `robot.env` file. Copy the example and edit if your robot isn't at the lab default:
+The connection is configured via a `.env` file at the repo root. Copy the example and edit if your robot hasa different IP:
 
 ```bash
-cp robot.env.example robot.env
+cp .env.example .env
 ```
 
 ```bash
-# robot.env
+# .env
 NAOQI_IP=192.168.123.50   # robot IP (use 127.0.0.1 for a local NAOqi sim)
-NAOQI_PORT=9559           # 9559 on physical robots, sim-specific otherwise
+NAOQI_PORT=9559           
 ```
+
+The same `.env` also includes opt-in switches for GPU STT and dev-overlay shortcuts — see the example for the full list.
 
 ### 3. Build and run (MVP)
 
@@ -97,7 +99,7 @@ The overlay mounts both sibling repos into the `pepper-wizard` container for liv
 
 #### Shortening the dev-overlay commands (optional)
 
-Add a `.env` file (gitignored) to the repo root:
+Uncomment these lines in your `.env` (created in step 2):
 
 ```
 COMPOSE_FILE=docker-compose.yml:docker-compose.dev.yml
@@ -116,7 +118,7 @@ Omit `COMPOSE_PROFILES=gpu` on hosts without NVIDIA runtime.
 
 #### Running against the simulator
 
-Set `NAOQI_IP=127.0.0.1` in `robot.env` to trigger sim mode — `pepper-robot-env`'s entrypoint detects the local IP and boots qiBullet instead of pynaoqi. On first boot it auto-seeds the qiBullet asset cache (Pepper URDF + meshes) into `../PepperBox/.qibullet/`.
+Set `NAOQI_IP=127.0.0.1` in `.env` to trigger sim mode — `pepper-robot-env`'s entrypoint detects the local IP and boots qiBullet instead of pynaoqi. On first boot it auto-seeds the qiBullet asset cache (Pepper URDF + meshes) into `../PepperBox/.qibullet/`.
 
 The cache directory is auto-created by Docker as `root`-owned on first mount, which blocks the container's `pepperdev` user (UID 1000) from writing. If the entrypoint prints a permission-denied message, chown the host directory once and recreate the container:
 

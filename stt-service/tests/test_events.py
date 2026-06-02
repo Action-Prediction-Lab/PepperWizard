@@ -19,7 +19,7 @@ class TestEvents(unittest.TestCase):
 
     def test_error_event(self):
         t0 = datetime(2026, 4, 19, 15, 44, 12, tzinfo=timezone.utc)
-        payload = json.loads(encode_error("whisper_failed", "cuda oom", t0))
-        self.assertEqual(payload["error"], "whisper_failed")
+        payload = json.loads(encode_error("transcribe_failed", "cuda oom", t0))
+        self.assertEqual(payload["error"], "transcribe_failed")
         self.assertEqual(payload["detail"], "cuda oom")
         self.assertEqual(payload["t_start"], "2026-04-19T15:44:12.000Z")

@@ -1,14 +1,14 @@
-FROM python:3.9-slim
+FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies for sounddevice (PortAudio) and PulseAudio
 RUN apt-get update && apt-get install -y \
     libportaudio2 \
     libsndfile1 \
     libpulse0 \
     libasound2-plugins \
     pulseaudio-utils \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 # Configure ALSA to route through PulseAudio (PortAudio uses ALSA backend)
@@ -21,19 +21,15 @@ RUN echo '\
     }\n' > /etc/asound.conf
 
 COPY stt-service/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cu124 torch torchaudio \
+ && pip install --no-cache-dir -r requirements.txt
 
-# Bake the Whisper model into the image so first-boot is fast and offline-capable.
-# Reads model_size from pepper_wizard/config/stt.json 
-# shared with the runtime config (mounted at /app/pepper_config/stt.json).
-# HF_HOME points outside /app so the runtime bind-mount of ./stt-service:/app
-ENV HF_HOME=/opt/whisper-cache
+ 
+ENV HF_HOME=/opt/asr-cache
 COPY pepper_wizard/config/stt.json /tmp/stt.json
+COPY stt-service/bake_models.py stt-service/config_loader.py stt-service/vad_segmenter.py /tmp/
 RUN mkdir -p ${HF_HOME} && \
-    python -c "import json; from faster_whisper import WhisperModel; \
-m = json.load(open('/tmp/stt.json')).get('model_size', 'base.en'); \
-print(f'[build] baking whisper model: {m}'); \
-WhisperModel(m, device='cpu', compute_type='int8')"
+    PYTHONPATH=/tmp python -u /tmp/bake_models.py /tmp/stt.json
 
 COPY stt-service/. .
 

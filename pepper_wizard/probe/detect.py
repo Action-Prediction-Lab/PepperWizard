@@ -94,7 +94,7 @@ def detect_robot(
 ) -> DetectorResult:
     raw = {}
     if ip is None or port is None:
-        env_path = Path(robot_env_path) if robot_env_path else Path("robot.env")
+        env_path = Path(robot_env_path) if robot_env_path else Path(".env")
         raw["robot_env_path"] = str(env_path)
         raw["robot_env_exists"] = env_path.exists()
         if env_path.exists():
@@ -108,7 +108,7 @@ def detect_robot(
     if not ip or not port:
         return DetectorResult(
             value="missing-config",
-            detail="NAOQI_IP/NAOQI_PORT not set (no robot.env or incomplete)",
+            detail="NAOQI_IP/NAOQI_PORT not set (no .env or incomplete)",
             raw=raw,
         )
 

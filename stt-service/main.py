@@ -2,8 +2,8 @@
 STT Service — Speech-to-Text microservice for PepperWizard.
 
 Captures audio from the host microphone (via PortAudio/ALSA routed through PulseAudio) and transcribes it
-using a configurable Whisper model. Communicates with pepper-wizard over
-ZMQ REQ/REP.
+using a configurable backend (faster-whisper or NVIDIA Parakeet via NeMo).
+Communicates with pepper-wizard over ZMQ REQ/REP.
 
 Protocol:
     REQ: {"action": "start"}       → REP: {"status": "recording"}
@@ -12,32 +12,33 @@ Protocol:
 """
 
 import argparse
-import json
-import os
+import sys
 import time
 import threading
 from datetime import datetime, timezone
+from typing import Optional
 
 import numpy as np
 import sounddevice as sd
 import zmq
-from faster_whisper import WhisperModel
 
-from vad_segmenter import VadSegmenter, VadConfig
+from backends import EngineLoadError, STTBackend, make_backend
+from config_loader import _load_config, _load_vad_config
 from events import UtteranceEvent, encode_event, encode_error
+from vad_segmenter import VadSegmenter, VadConfig
 
 
 class StreamingWorker(threading.Thread):
     """Consumes robot-mic audio on a SUB, segments via VAD, transcribes with
-    Whisper (sequentially), and publishes JSON utterance events on a PUB socket."""
+    the configured backend (sequentially), and publishes JSON utterance events on a PUB socket."""
 
     def __init__(self, audio_addr: str, pub_addr: str,
-                 vad_config: VadConfig, whisper, is_muted):
+                 vad_config: VadConfig, backend: STTBackend, is_muted):
         super().__init__(daemon=True)
         self._audio_addr = audio_addr
         self._pub_addr = pub_addr
         self._vad_config = vad_config
-        self._whisper = whisper
+        self._backend = backend
         self._is_muted = is_muted
         self._stop_evt = threading.Event()
 
@@ -62,12 +63,12 @@ class StreamingWorker(threading.Thread):
             t_start = utt_start[0] or t_end
             audio_f32 = np.frombuffer(pcm_bytes, dtype=np.int16).astype(np.float32) / 32768.0
             try:
-                segments, _ = self._whisper.transcribe(
+                segments, _ = self._backend.transcribe(
                     audio_f32, beam_size=3, language="en", vad_filter=False,
                 )
                 text = " ".join(s.text.strip() for s in segments).strip()
             except Exception as e:
-                pub.send_string(encode_error("whisper_failed", str(e), t_start))
+                pub.send_string(encode_error("transcribe_failed", str(e), t_start))
                 utt_start[0] = None
                 return
             duration_s = len(audio_f32) / 16000.0
@@ -141,51 +142,13 @@ class AudioRecorder:
         return audio
 
 
-DEFAULT_VAD = {
-    "threshold": 0.5,
-    "min_silence_ms": 700,
-    "min_utterance_ms": 300,
-    "max_utterance_ms": 15000,
-    "preroll_ms": 200,
-}
-
-DEFAULT_MODEL_SIZE = "small.en"
-
-
-def _load_vad_config(path: str = "/app/pepper_config/stt.json") -> VadConfig:
-    """Load VAD parameters from stt.json if present; fall back to DEFAULT_VAD."""
-    params = dict(DEFAULT_VAD)
-    try:
-        with open(path) as f:
-            data = json.load(f)
-        params.update(data.get("vad", {}))
-    except (FileNotFoundError, json.JSONDecodeError, OSError):
-        pass
-    return VadConfig(**params)
-
-
-def _load_model_size(path: str = "/app/pepper_config/stt.json") -> str:
-    """Load Whisper model_size from stt.json if present; fall back to DEFAULT_MODEL_SIZE."""
-    try:
-        with open(path) as f:
-            data = json.load(f)
-        return data.get("model_size", DEFAULT_MODEL_SIZE)
-    except (FileNotFoundError, json.JSONDecodeError, OSError):
-        return DEFAULT_MODEL_SIZE
-
-
 class STTService:
     """ZMQ REQ/REP service that records and transcribes on demand."""
 
-    def __init__(self, model_size: str, zmq_port: int, sample_rate: int):
+    def __init__(self, backend: STTBackend, zmq_port: int, sample_rate: int,
+                 config: Optional[dict] = None):
         self.recorder = AudioRecorder(sample_rate=sample_rate)
-
-        # Load the Whisper model (CPU, int8 quantised)
-        print(f"[STTService] Loading whisper model '{model_size}' (cpu, int8)...")
-        self.model = WhisperModel(
-            model_size, device="cpu", compute_type="int8"
-        )
-        print(f"[STTService] Model loaded.")
+        self.backend = backend
 
         # ZMQ setup
         self.context = zmq.Context()
@@ -196,16 +159,16 @@ class STTService:
 
         self._muted = False
         self._worker = None
-        self._vad_config = _load_vad_config()
+        self._vad_config = _load_vad_config(config or {})
         self._audio_addr = "tcp://localhost:5563"
         self._pub_addr = "tcp://*:5564"
 
     def transcribe(self, audio: np.ndarray) -> str:
-        """Run whisper transcription on a float32 audio array."""
+        """Run transcription on a float32 audio array."""
         if len(audio) == 0:
             return ""
 
-        segments, _info = self.model.transcribe(
+        segments, _info = self.backend.transcribe(
             audio,
             beam_size=3,
             language="en",
@@ -249,7 +212,6 @@ class STTService:
             duration = len(audio) / self.recorder.sample_rate
 
             if duration < 0.3:
-                # Too short to be meaningful speech
                 return {
                     "transcription": "",
                     "duration": round(duration, 2),
@@ -268,12 +230,15 @@ class STTService:
                 }
 
         elif action == "enable_streaming":
+            # Clear any stale mute state from a previous session
+            # whose unmute() never reached us (e.g. wizard exited mid-dispatch).
+            self._muted = False
             if self._worker is None:
                 self._worker = StreamingWorker(
                     audio_addr=self._audio_addr,
                     pub_addr=self._pub_addr,
                     vad_config=self._vad_config,
-                    whisper=self.model,
+                    backend=self.backend,
                     is_muted=lambda: self._muted,
                 )
                 self._worker.start()
@@ -284,6 +249,9 @@ class STTService:
                 self._worker.stop()
                 self._worker.join(timeout=2.0)
                 self._worker = None
+            # mute/unmute are per-dispatch state; clear so the next streaming
+            # session does not inherit a stuck-True flag from a dropped unmute().
+            self._muted = False
             return {"status": "idle"}
 
         elif action == "mute":
@@ -320,7 +288,7 @@ def main():
     parser = argparse.ArgumentParser(description="PepperWizard STT Service")
     parser.add_argument(
         "--model", type=str, default=None,
-        help="Whisper model size (overrides stt.json model_size; default taken from stt.json)",
+        help="Whisper model size (overrides stt.json whisper_model; ignored when engine is not 'whisper').",
     )
     parser.add_argument(
         "--port", type=int, default=5562,
@@ -332,12 +300,29 @@ def main():
     )
     args = parser.parse_args()
 
-    model_size = args.model if args.model is not None else _load_model_size()
+    config = _load_config()
+
+    if args.model is not None:
+        if config.get("engine", "whisper") == "whisper":
+            config["whisper_model"] = args.model
+        else:
+            print(
+                f"[STTService] --model={args.model!r} ignored: engine is "
+                f"{config.get('engine')!r}, not 'whisper'.",
+                file=sys.stderr,
+            )
+
+    try:
+        backend = make_backend(config)
+    except EngineLoadError as e:
+        print(f"[STTService] {e}", file=sys.stderr)
+        sys.exit(1)
 
     service = STTService(
-        model_size=model_size,
+        backend=backend,
         zmq_port=args.port,
         sample_rate=args.sample_rate,
+        config=config,
     )
     service.run()
 

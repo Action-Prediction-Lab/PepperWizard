@@ -9,8 +9,10 @@ class TestSTTActions(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        # Share the STTService (and its Whisper load) across the class.
-        cls.svc = STTService(model_size="tiny.en", zmq_port=15562, sample_rate=16000)
+        # Share the STTService (and its WhisperBackend load) across the class.
+        from backends import WhisperBackend
+        backend = WhisperBackend("tiny.en", device="cpu", compute_type="int8")
+        cls.svc = STTService(backend=backend, zmq_port=15562, sample_rate=16000)
 
     @classmethod
     def tearDownClass(cls):

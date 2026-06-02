@@ -41,7 +41,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     )
     parser.add_argument(
         "--robot-env", type=str, default=None,
-        help="Path to robot.env (default: ./robot.env if present).",
+        help="Path to the project env file (default: ./.env if present).",
     )
     args = parser.parse_args(argv)
 
