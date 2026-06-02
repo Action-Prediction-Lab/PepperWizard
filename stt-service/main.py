@@ -230,6 +230,9 @@ class STTService:
                 }
 
         elif action == "enable_streaming":
+            # Clear any stale mute state from a previous session
+            # whose unmute() never reached us (e.g. wizard exited mid-dispatch).
+            self._muted = False
             if self._worker is None:
                 self._worker = StreamingWorker(
                     audio_addr=self._audio_addr,
@@ -246,6 +249,9 @@ class STTService:
                 self._worker.stop()
                 self._worker.join(timeout=2.0)
                 self._worker = None
+            # mute/unmute are per-dispatch state; clear so the next streaming
+            # session does not inherit a stuck-True flag from a dropped unmute().
+            self._muted = False
             return {"status": "idle"}
 
         elif action == "mute":
