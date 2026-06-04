@@ -782,6 +782,7 @@ def llm_talk_session(robot_client, config, verbose=False):
     from .stt_client import STTClient
     from .llm.client import LLMClient, LLMUnavailable
     from .llm.config_watcher import LLMConfigWatcher
+    from .llm.identity import build_config_snapshot
 
     logger = get_logger("LLMTalk")
     stt_config = config.stt_config
@@ -799,6 +800,7 @@ def llm_talk_session(robot_client, config, verbose=False):
         )
         return
 
+    logger.info("LLMConfigSnapshot", build_config_snapshot(watcher.current(), "session_start"))
     stt_client = STTClient(stt_config.get("zmq_address", "tcp://localhost:5562"))
     if not stt_client.ping():
         print_formatted_text(HTML(
@@ -963,20 +965,21 @@ def _announce_llm_reload(old_config: dict, new_config: dict, logger):
         return
     summary = "config reloaded: " + ", ".join(changed)
     print_formatted_text(HTML(f"<ansigray>{escape(summary)}</ansigray>"))
-    logger.info("LLMConfigReload", {
-        "changed": changed,
-        "old": old_config,
-        "new": new_config,
-    })
+    from .llm.identity import build_config_snapshot
+    logger.info(
+        "LLMConfigSnapshot",
+        build_config_snapshot(new_config, "reload", changed=changed),
+    )
 
 
 def _dispatch_to_llm(user_text, *, source, llm, stt, robot_client, logger):
     # Mute while Pepper is speaking so stt-service ignores self-hearing.
-    # TODO - for the person interrupting pepper this needs some neance. Outside the scope of current PR. 
+    # TODO - for the person interrupting pepper this needs some neance.
     stt.mute()
     logger.info("MuteStart", {})
     try:
-        reply = llm.reply(user_text)
+        result = llm.reply(user_text)
+        reply = result.text
     except Exception as e:
         print_formatted_text(
             HTML("<ansired>LLM error: {}</ansired>").format(str(e))
@@ -1005,4 +1008,10 @@ def _dispatch_to_llm(user_text, *, source, llm, stt, robot_client, logger):
         logger.error("TalkFailed", {"error": str(e)})
     stt.unmute()
     logger.info("MuteEnd", {})
-    logger.info("LLMTurn", {"user": user_text, "reply": reply, "source": source})
+    logger.info("LLMTurn", {
+        "user": user_text,
+        "reply": reply,
+        "source": source,
+        "config_hash": result.config_hash,
+        "config_name": result.config_name,
+    })

@@ -1,9 +1,14 @@
 import os
-from collections import deque
+import threading
+from collections import deque, namedtuple
+from .identity import resolve_config, config_fingerprint
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .config_watcher import LLMConfigWatcher
+
+
+ReplyResult = namedtuple("ReplyResult", ["text", "config_hash", "config_name"])
 
 
 class LLMUnavailable(Exception):
@@ -20,11 +25,7 @@ class LLMClient:
 
     def __init__(self, watcher: "LLMConfigWatcher"):
         self._watcher = watcher
-
-        # Initialise with the default maxlen; reply() will resize on first call
-        # if the watcher's history_turns differs. We do not call watcher.current()
-        # here so that the watcher call-count seen by callers reflects only
-        # active turns, not construction overhead.
+        self._lock = threading.Lock()
         self._history = deque(maxlen=10 * 2)
 
         api_key = os.environ.get("ANTHROPIC_API_KEY")
@@ -48,33 +49,37 @@ class LLMClient:
     def model(self) -> str:
         return self._watcher.current().get("model", "claude-haiku-4-5")
 
-    def reply(self, user_text: str) -> str:
-        """Send `user_text` with the rolling history and return the reply."""
-        config = self._watcher.current()
+    def reply(self, user_text: str) -> "ReplyResult":
+        """Send user_text with the rolling history; return a ReplyResult with the
+        reply text plus the identity (config_hash, config_name) of the config used
+        for THIS turn. A per-client lock serializes concurrent callers (e.g. the
+        auto-dispatch VAD thread and typed input) so attribution is captured atomically 
+        instead of read back from shared state."""
+        with self._lock:
+            raw = self._watcher.current()
+            resolved = resolve_config(raw)
 
-        desired_maxlen = config.get("history_turns", 10) * 2
-        if self._history.maxlen != desired_maxlen:
-            self._history = deque(self._history, maxlen=desired_maxlen)
+            desired_maxlen = resolved["history_turns"] * 2
+            if self._history.maxlen != desired_maxlen:
+                self._history = deque(self._history, maxlen=desired_maxlen)
 
-        self._history.append({"role": "user", "content": user_text})
+            self._history.append({"role": "user", "content": user_text})
 
-        response = self._client.messages.create(
-            model=config.get("model", "claude-haiku-4-5"),
-            system=config.get(
-                "system_prompt",
-                "You are Pepper, a humanoid robot. Keep replies brief and conversational.",
-            ),
-            max_tokens=config.get("max_tokens", 256),
-            temperature=config.get("temperature", 0.7),
-            messages=list(self._history),
-        )
+            response = self._client.messages.create(
+                model=resolved["model"],
+                system=resolved["system_prompt"],
+                max_tokens=resolved["max_tokens"],
+                temperature=resolved["temperature"],
+                messages=list(self._history),
+            )
 
-        reply_text = "".join(
-            block.text for block in response.content if block.type == "text"
-        ).strip()
+            reply_text = "".join(
+                block.text for block in response.content if block.type == "text"
+            ).strip()
 
-        self._history.append({"role": "assistant", "content": reply_text})
-        return reply_text
+            self._history.append({"role": "assistant", "content": reply_text})
+            return ReplyResult(reply_text, config_fingerprint(resolved), raw.get("name"))
 
     def reset(self):
-        self._history.clear()
+        with self._lock:
+            self._history.clear()
