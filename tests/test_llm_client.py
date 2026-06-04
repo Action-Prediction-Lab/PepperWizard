@@ -131,7 +131,7 @@ class LLMClientTests(unittest.TestCase):
         client = LLMClient(watcher)
         self._mock_messages.create.return_value = _make_anthropic_response("the reply")
         result = client.reply("the question")
-        self.assertEqual(result, "the reply")
+        self.assertEqual(result.text, "the reply")
         self.assertEqual(list(client._history), [
             {"role": "user", "content": "the question"},
             {"role": "assistant", "content": "the reply"},
@@ -158,6 +158,65 @@ class LLMClientTests(unittest.TestCase):
         self.assertEqual(client.model, "claude-haiku-4-5")
         watcher.update(model="claude-sonnet-4-6")
         self.assertEqual(client.model, "claude-sonnet-4-6")
+
+    def test_reply_captures_config_hash_and_name(self):
+        from pepper_wizard.llm.client import LLMClient
+        from pepper_wizard.llm.identity import config_fingerprint, resolve_config
+
+        cfg = {
+            "name": "persona-a",
+            "model": "claude-haiku-4-5",
+            "system_prompt": "be brief",
+            "max_tokens": 50,
+            "temperature": 0.3,
+            "history_turns": 4,
+        }
+        watcher = FakeWatcher(cfg)
+        client = LLMClient(watcher)
+        result = client.reply("hi")
+        self.assertEqual(result.config_hash, config_fingerprint(resolve_config(cfg)))
+        self.assertEqual(result.config_name, "persona-a")
+
+    def test_config_name_none_when_absent(self):
+        from pepper_wizard.llm.client import LLMClient
+
+        watcher = FakeWatcher({"history_turns": 4})
+        client = LLMClient(watcher)
+        result = client.reply("hi")
+        self.assertIsNone(result.config_name)
+
+    def test_config_hash_changes_when_config_changes(self):
+        from pepper_wizard.llm.client import LLMClient
+
+        watcher = FakeWatcher({"system_prompt": "old", "history_turns": 4})
+        client = LLMClient(watcher)
+        first_hash = client.reply("first").config_hash
+        watcher.update(system_prompt="new")
+        second_hash = client.reply("second").config_hash
+        self.assertNotEqual(second_hash, first_hash)
+
+    def test_concurrent_replies_are_serialized(self):
+        import threading
+        import time
+        from pepper_wizard.llm.client import LLMClient
+
+        watcher = FakeWatcher({"history_turns": 100})
+        client = LLMClient(watcher)
+
+        def slow_create(*args, **kwargs):
+            time.sleep(0.005)  
+            return _make_anthropic_response("ok")
+
+        self._mock_messages.create.side_effect = slow_create
+        threads = [threading.Thread(target=client.reply, args=("msg-%d" % i,)) for i in range(6)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        history = list(client._history)
+        self.assertEqual(len(history), 12)
+        self.assertEqual([m["role"] for m in history], ["user", "assistant"] * 6)
 
 
 if __name__ == "__main__":
