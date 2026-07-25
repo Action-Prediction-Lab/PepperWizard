@@ -21,7 +21,7 @@ def check(label, ok, detail=""):
         _failures.append(label)
 
 def run():
-    # Fresh log per run so the record is a single clean run, not appended history.
+    # Fresh log per run.
     if os.path.exists(LOG_FILE):
         os.remove(LOG_FILE)
     setup_logging(log_file=LOG_FILE, verbose=True)
@@ -33,7 +33,7 @@ def run():
     except Exception as e:
         print(f"FATAL: could not connect to robot: {e}")
         sys.exit(1)
-    raw = client.client  # raw NaoqiClient for getRobotPosition, not wrapped by RobotClient
+    raw = client.client  # raw NaoqiClient for getRobotPosition.
 
     # Action walk drives the event-presence coverage.
     client.wake_up()
@@ -74,8 +74,8 @@ def run():
           isinstance(diag, list) and len(diag) == 2
           and isinstance(diag[0], int) and isinstance(diag[1], list), f"{diag}")
 
-    # is_awake(), social-state readback, and joint temperatures are sim-stubbed
-    # (always True, always False, {}); asserting them would test the stub, not our code.
+    # is_awake(), social-state readback, and joint temperatures are sim-stubbed.
+    # (always True, always False, {}).
 
     client.rest()
 
