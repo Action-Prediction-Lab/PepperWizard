@@ -66,6 +66,20 @@ class RobotClient:
         except NaoqiProxyError as e:
             print(f"TTS Error: {e}")
 
+    def body_language_talk(self, mode, message):
+        """Makes the robot say a message through animated speech with a body-language mode; on a proxy error says it plainly and returns False."""
+        say_string = message.replace("^", "")
+        try:
+            if self.verbose:
+                print(f"[DEBUG] RobotClient.body_language_talk ({mode}): '{say_string}'")
+            self.logger.info("Speech", {"text": say_string, "type": "animated", "mode": mode})
+            self.client.ALAnimatedSpeech.say(say_string, {"bodyLanguageMode": mode})
+            return True
+        except NaoqiProxyError as e:
+            self.logger.warning("SpeechFallback", {"mode": mode, "error": str(e)})
+            self.talk(message)
+            return False
+
     def play_animation_blocking(self, animation_name):
         """Plays an animation and waits for it to finish."""
         try:
