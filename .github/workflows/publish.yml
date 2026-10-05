@@ -57,8 +57,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=stt
 
   backfill:
-    # On private->public flip or manual re-run: build every existing v* tag,
-    # both images per tag.
+    # On private->public flip or manual re-run: build each v* tag that has no published image; a published image is never overwritten.
     if: github.event_name == 'public' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
@@ -80,17 +79,24 @@ jobs:
             echo "No v* tags found, nothing to backfill."
             exit 0
           fi
+          build_missing() {
+            if docker manifest inspect "$1" >/dev/null 2>&1; then
+              echo "$1 is published, skipped"
+            else
+              docker build -t "$1" -f "$2" .
+              docker push "$1"
+            fi
+          }
           for tag in $tags; do
             echo "::group::$tag"
             git checkout "$tag"
-            docker build -t "$WIZARD_IMAGE:$tag" -f Dockerfile .
-            docker push "$WIZARD_IMAGE:$tag"
-            docker build -t "$STT_IMAGE:$tag" -f stt-service/Dockerfile .
-            docker push "$STT_IMAGE:$tag"
+            build_missing "$WIZARD_IMAGE:$tag" Dockerfile
+            build_missing "$STT_IMAGE:$tag" stt-service/Dockerfile
             echo "::endgroup::"
           done
           latest=$(echo "$tags" | tail -1)
-          docker tag "$WIZARD_IMAGE:$latest" "$WIZARD_IMAGE:latest"
-          docker push "$WIZARD_IMAGE:latest"
-          docker tag "$STT_IMAGE:$latest" "$STT_IMAGE:latest"
-          docker push "$STT_IMAGE:latest"
+          for image in "$WIZARD_IMAGE" "$STT_IMAGE"; do
+            docker pull "$image:$latest"
+            docker tag "$image:$latest" "$image:latest"
+            docker push "$image:latest"
+          done
