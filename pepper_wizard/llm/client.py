@@ -8,7 +8,7 @@ if TYPE_CHECKING:
     from .config_watcher import LLMConfigWatcher
 
 
-ReplyResult = namedtuple("ReplyResult", ["text", "config_hash", "config_name"])
+ReplyResult = namedtuple("ReplyResult", ["text", "config_hash", "config_name", "model_identity"], defaults=(None,))
 
 
 class LLMUnavailable(Exception):
@@ -78,7 +78,7 @@ class LLMClient:
             ).strip()
 
             self._history.append({"role": "assistant", "content": reply_text})
-            return ReplyResult(reply_text, config_fingerprint(resolved), raw.get("name"))
+            return ReplyResult(reply_text, config_fingerprint(resolved), raw.get("name"), model_identity=response.model)
 
     def reset(self):
         with self._lock:
