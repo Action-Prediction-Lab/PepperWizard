@@ -1014,4 +1014,5 @@ def _dispatch_to_llm(user_text, *, source, llm, stt, robot_client, logger):
         "source": source,
         "config_hash": result.config_hash,
         "config_name": result.config_name,
+        "model_identity": result.model_identity,
     })

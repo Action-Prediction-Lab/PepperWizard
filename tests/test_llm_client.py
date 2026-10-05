@@ -17,9 +17,9 @@ class FakeWatcher:
         self._config = {**self._config, **changes}
 
 
-def _make_anthropic_response(text):
+def _make_anthropic_response(text, model="claude-haiku-4-5-20251001"):
     block = SimpleNamespace(type="text", text=text)
-    return SimpleNamespace(content=[block])
+    return SimpleNamespace(content=[block], model=model)
 
 
 class LLMClientTests(unittest.TestCase):
@@ -194,6 +194,13 @@ class LLMClientTests(unittest.TestCase):
         watcher.update(system_prompt="new")
         second_hash = client.reply("second").config_hash
         self.assertNotEqual(second_hash, first_hash)
+
+    def test_reply_carries_the_model_identity_from_the_response(self):
+        """model_identity is the id the API reports as having answered, which can differ from the name the config asks for."""
+        from pepper_wizard.llm.client import LLMClient
+
+        client = LLMClient(FakeWatcher({"model": "claude-haiku-4-5", "history_turns": 4}))
+        self.assertEqual(client.reply("hi").model_identity, "claude-haiku-4-5-20251001")
 
     def test_concurrent_replies_are_serialized(self):
         import threading
