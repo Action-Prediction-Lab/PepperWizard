@@ -16,7 +16,7 @@ env:
 
 jobs:
   publish-tag:
-    # On a tag push to a public repo: build and push both images.
+    # On a tag push to a public repo: build and push both images; a tag with a hyphen (v2.4.0-rc.1) is a pre-release and never becomes latest.
     if: |
       github.event_name == 'push' &&
       github.event.repository.private == false
@@ -40,7 +40,7 @@ jobs:
           push: true
           tags: |
             ${{ env.WIZARD_IMAGE }}:${{ github.ref_name }}
-            ${{ env.WIZARD_IMAGE }}:latest
+            ${{ !contains(github.ref_name, '-') && format('{0}:latest', env.WIZARD_IMAGE) || '' }}
           cache-from: type=gha,scope=wizard
           cache-to: type=gha,mode=max,scope=wizard
 
@@ -52,7 +52,7 @@ jobs:
           push: true
           tags: |
             ${{ env.STT_IMAGE }}:${{ github.ref_name }}
-            ${{ env.STT_IMAGE }}:latest
+            ${{ !contains(github.ref_name, '-') && format('{0}:latest', env.STT_IMAGE) || '' }}
           cache-from: type=gha,scope=stt
           cache-to: type=gha,mode=max,scope=stt
 
@@ -94,7 +94,12 @@ jobs:
             build_missing "$STT_IMAGE:$tag" stt-service/Dockerfile
             echo "::endgroup::"
           done
-          latest=$(echo "$tags" | tail -1)
+          # latest points at the newest tag without a hyphen, so a pre-release never becomes latest.
+          latest=$(echo "$tags" | { grep -v -- '-' || true; } | tail -1)
+          if [[ -z "$latest" ]]; then
+            echo "No release tag without a hyphen, latest left unchanged."
+            exit 0
+          fi
           for image in "$WIZARD_IMAGE" "$STT_IMAGE"; do
             docker pull "$image:$latest"
             docker tag "$image:$latest" "$image:latest"
