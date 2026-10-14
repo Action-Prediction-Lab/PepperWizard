@@ -17,8 +17,8 @@ RUN apt-get update && apt-get install -y \
 # Copy the requirements file into the container
 COPY requirements.txt .
 
-# Every pip install takes package versions from constraints.txt, the package list of the v2.3.1 image
-COPY constraints.txt .
+# Every pip install takes package versions from docker/constraints.txt.
+COPY docker/constraints.txt .
 ENV PIP_CONSTRAINT=/usr/src/app/constraints.txt
 
 # Install base requirements
