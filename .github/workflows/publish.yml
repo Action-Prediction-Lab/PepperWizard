@@ -79,12 +79,17 @@ jobs:
             echo "No v* tags found, nothing to backfill."
             exit 0
           fi
+          # Only "manifest unknown" means unpublished; any other registry error stops the job rather than risk overwriting a tag.
           build_missing() {
-            if docker manifest inspect "$1" >/dev/null 2>&1; then
+            local inspect
+            if inspect=$(docker manifest inspect "$1" 2>&1); then
               echo "$1 is published, skipped"
-            else
+            elif grep -q "manifest unknown" <<<"$inspect"; then
               docker build -t "$1" -f "$2" .
               docker push "$1"
+            else
+              echo "$inspect" >&2
+              exit 1
             fi
           }
           for tag in $tags; do
