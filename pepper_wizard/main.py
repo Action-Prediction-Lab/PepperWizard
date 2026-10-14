@@ -7,6 +7,7 @@ from .config import load_config
 from .robot_client import RobotClient
 from .command_handler import CommandHandler
 from .recording import RecordingController
+from .event_sink import EventSink
 
 from prompt_toolkit import PromptSession
 
@@ -30,6 +31,9 @@ def main():
 
     cli.print_title()
     logger.info("ApplicationStarted", {"proxy_ip": args.proxy_ip, "proxy_port": args.proxy_port})
+
+    event_sink = EventSink(get_logger("EventSink"))
+    event_sink.start()
 
     config = load_config()
 
@@ -137,6 +141,7 @@ def main():
         if paths:
             print(f"Recording finalised: {paths['mkv']}")
         command_handler.cleanup()
+        event_sink.stop()
 
     print(" --- Exiting Pepper Wizard ---")
 

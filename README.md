@@ -207,6 +207,7 @@ Logs are automatically saved to the `logs/` directory in JSON Lines (JSONL) form
     ```bash
     docker compose run --rm -it pepper-wizard python3 -m pepper_wizard.main --proxy-ip host.docker.internal --proxy-port 5000 --session-id P01
     ```
+*   **Robot Events**: When PepperBox publishes NAOqi's events on port `5565`, PepperWizard writes each one as a `NAOqiEvent` line carrying its topic, time and value. `EventStreamRestored` marks where the events begin, at the start of the session and after any gap, and `EventStreamLost` marks where they stop, two seconds after the last heartbeat.
 
 ### Console Output
 By default, the console output is minimal, only showing critical warnings or errors.
