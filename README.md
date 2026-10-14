@@ -192,6 +192,7 @@ You can customise some of the robot's behaviors by editing the JSON files:
 *   **`animations.json`**: Maps animation names to single-character keys. These tags are used internally and by `emoticon_map.json`.
 *   **`emoticon_map.json`**: Maps emoticons (e.g., `:)`, `:(`) to animation names (e.g., `happy`, `sad`). This allows for dynamic animation triggering in Unified Talk Mode.
 *   **`quick_responses.json`**: Defines phrases and animations that can be triggered by hotkeys (e.g., `/N`) in the Unified Talk Mode. The `animation` field in each entry is used to determine which animation to play.
+*   **`llm.json`**: Settings for the LLM talk mode, in which Anthropic's Claude dictates Pepper's replies. Edits take effect on the next reply. `model`, `system_prompt`, `max_tokens` and `temperature` set the request, `history_turns` sets how many past turns of the dialogue the model is provided, and an optional `name` labels the config in the logs. The optional `body_language` key sets how Pepper moves their body during each reply: without it, no speaking movements, through `ALTextToSpeech`; with `disabled`, `random` or `contextual`, through `ALAnimatedSpeech` in that body-language mode, falling back to `ALTextToSpeech` if the call fails. Each `LLMTurn` log entry records the mode and the path used.
 
 ## Logging
 
@@ -206,6 +207,7 @@ Logs are automatically saved to the `logs/` directory in JSON Lines (JSONL) form
     ```bash
     docker compose run --rm -it pepper-wizard python3 -m pepper_wizard.main --proxy-ip host.docker.internal --proxy-port 5000 --session-id P01
     ```
+*   **Robot Events**: When PepperBox publishes NAOqi's events on port `5565`, PepperWizard writes each one as a `NAOqiEvent` line carrying its topic, time and value. `EventStreamRestored` marks where the events begin, at the start of the session and after any gap, and `EventStreamLost` marks where they stop, two seconds after the last heartbeat.
 
 ### Console Output
 By default, the console output is minimal, only showing critical warnings or errors.

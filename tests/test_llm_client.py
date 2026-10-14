@@ -202,6 +202,16 @@ class LLMClientTests(unittest.TestCase):
         client = LLMClient(FakeWatcher({"model": "claude-haiku-4-5", "history_turns": 4}))
         self.assertEqual(client.reply("hi").model_identity, "claude-haiku-4-5-20251001")
 
+    def test_reply_carries_body_language_from_the_config(self):
+        """reply() returns the config's body_language value, None when the key is absent."""
+        from pepper_wizard.llm.client import LLMClient
+
+        watcher = FakeWatcher({"history_turns": 4})
+        client = LLMClient(watcher)
+        self.assertIsNone(client.reply("hi").body_language)
+        watcher.update(body_language="random")
+        self.assertEqual(client.reply("hi").body_language, "random")
+
     def test_concurrent_replies_are_serialized(self):
         import threading
         import time

@@ -1001,8 +1001,13 @@ def _dispatch_to_llm(user_text, *, source, llm, stt, robot_client, logger):
             "<ansiyellow>[Pepper]</ansiyellow> \"{}\""
         ).format(user_text, reply)
     )
+    body_language = result.body_language
+    spoke_animated = False
     try:
-        robot_client.talk(reply)
+        if body_language is None:
+            robot_client.talk(reply)
+        else:
+            spoke_animated = robot_client.body_language_talk(body_language, reply)
     except Exception as e:
         print_formatted_text(HTML("<ansired>talk() failed: {}</ansired>").format(str(e)))
         logger.error("TalkFailed", {"error": str(e)})
@@ -1015,4 +1020,7 @@ def _dispatch_to_llm(user_text, *, source, llm, stt, robot_client, logger):
         "config_hash": result.config_hash,
         "config_name": result.config_name,
         "model_identity": result.model_identity,
+        "body_language": body_language,
+        "speech_path": "animated" if spoke_animated else "plain",
+        "speech_fallback": body_language is not None and not spoke_animated,
     })
