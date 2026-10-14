@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.11-slim@sha256:a3ab0b966bc4e91546a033e22093cb840908979487a9fc0e6e38295747e49ac0
 
 WORKDIR /app
 
@@ -21,6 +21,11 @@ RUN echo '\
     }\n' > /etc/asound.conf
 
 COPY stt-service/requirements.txt .
+
+# PIP_CONSTRAINT pins every pip install to the versions defined in docker/constraints-stt.txt
+COPY docker/constraints-stt.txt .
+ENV PIP_CONSTRAINT=/app/constraints-stt.txt
+
 RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cu124 torch torchaudio \
  && pip install --no-cache-dir -r requirements.txt
 

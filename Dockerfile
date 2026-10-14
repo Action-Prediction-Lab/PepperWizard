@@ -17,7 +17,7 @@ RUN apt-get update && apt-get install -y \
 # Copy the requirements file into the container
 COPY requirements.txt .
 
-# Every pip install takes package versions from docker/constraints.txt.
+# PIP_CONSTRAINT pins every pip install to the versions defined in docker/constraints.txt
 COPY docker/constraints.txt .
 ENV PIP_CONSTRAINT=/usr/src/app/constraints.txt
 
