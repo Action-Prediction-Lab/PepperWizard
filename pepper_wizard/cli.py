@@ -1,4 +1,8 @@
 # Command-line interface (UI) elements
+import contextlib
+import threading
+
+from .gesture_instructions import GestureInstructionsUnavailable, request_instructions
 from .spell_checker import SpellChecker
 from prompt_toolkit import PromptSession, print_formatted_text
 from prompt_toolkit.key_binding import KeyBindings
@@ -13,6 +17,9 @@ from prompt_toolkit.layout.controls import FormattedTextControl
 from prompt_toolkit.layout.layout import Layout
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.formatted_text import HTML
+
+# Each reply holds this lock from its gesture instructions request until it logs its LLMTurn; LLM talk mode holds it for its opening and closing GestureSwitch.on().
+_GESTURE_TURN_LOCK = threading.Lock()
 
 class InteractiveMenu:
     def __init__(self, title, options, on_toggle=None):
@@ -801,6 +808,9 @@ def llm_talk_session(robot_client, config, verbose=False):
         return
 
     logger.info("LLMConfigSnapshot", build_config_snapshot(watcher.current(), "session_start"))
+    if watcher.current().get("body_language") is not None and watcher.current().get("gesture_instructions"):
+        with _GESTURE_TURN_LOCK:
+            robot_client.gesture_switch_on()
     stt_client = STTClient(stt_config.get("zmq_address", "tcp://localhost:5562"))
     if not stt_client.ping():
         print_formatted_text(HTML(
@@ -903,6 +913,9 @@ def llm_talk_session(robot_client, config, verbose=False):
         sub_stop.set()
         sub_thread.join(timeout=1.0)
         sub.close()
+        if watcher.current().get("body_language") is not None and watcher.current().get("gesture_instructions"):
+            with _GESTURE_TURN_LOCK:
+                robot_client.gesture_switch_on()
         stt_client.disable_streaming()
         stt_client.close()
         logger.info("StreamingDisabled", {})
@@ -1002,25 +1015,41 @@ def _dispatch_to_llm(user_text, *, source, llm, stt, robot_client, logger):
         ).format(user_text, reply)
     )
     body_language = result.body_language
-    spoke_animated = False
-    try:
-        if body_language is None:
-            robot_client.talk(reply)
-        else:
-            spoke_animated = robot_client.body_language_talk(body_language, reply)
-    except Exception as e:
-        print_formatted_text(HTML("<ansired>talk() failed: {}</ansired>").format(str(e)))
-        logger.error("TalkFailed", {"error": str(e)})
-    stt.unmute()
-    logger.info("MuteEnd", {})
-    logger.info("LLMTurn", {
-        "user": user_text,
-        "reply": reply,
-        "source": source,
-        "config_hash": result.config_hash,
-        "config_name": result.config_name,
-        "model_identity": result.model_identity,
-        "body_language": body_language,
-        "speech_path": "animated" if spoke_animated else "plain",
-        "speech_fallback": body_language is not None and not spoke_animated,
-    })
+    switched = body_language is not None and bool(result.gesture_instructions)
+    instructions, instructions_status = None, None
+    spoke_animated, switch_call_ok = False, None
+    with _GESTURE_TURN_LOCK if switched else contextlib.nullcontext():
+        if switched:
+            try:
+                instructions = request_instructions(result.gesture_instructions, reply.replace("^", ""))
+                instructions_status = "ok"
+            except GestureInstructionsUnavailable as e:
+                instructions_status = "unavailable"
+                logger.warning("GestureInstructionsUnavailable", {"error": str(e)})
+        try:
+            if body_language is None:
+                robot_client.talk(reply)
+            elif switched:
+                annotated_text = instructions["text"] if instructions else reply.replace("^", "")
+                spoke_animated, switch_call_ok = robot_client.gesture_switch_talk(body_language, reply, annotated_text, bool(instructions and instructions["off_now"]))
+            else:
+                spoke_animated = robot_client.body_language_talk(body_language, reply)
+        except Exception as e:
+            print_formatted_text(HTML("<ansired>talk() failed: {}</ansired>").format(str(e)))
+            logger.error("TalkFailed", {"error": str(e)})
+        stt.unmute()
+        logger.info("MuteEnd", {})
+        logger.info("LLMTurn", {
+            "user": user_text,
+            "reply": reply,
+            "source": source,
+            "config_hash": result.config_hash,
+            "config_name": result.config_name,
+            "model_identity": result.model_identity,
+            "body_language": body_language,
+            "speech_path": "animated" if spoke_animated else "plain",
+            "speech_fallback": body_language is not None and not spoke_animated,
+            "gesture_instructions": instructions_status,
+            "off_now": instructions["off_now"] if instructions else None,
+            "gesture_switch_call_failed": None if switch_call_ok is None else not switch_call_ok,
+        })

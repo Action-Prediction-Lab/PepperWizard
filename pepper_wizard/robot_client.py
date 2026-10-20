@@ -80,6 +80,47 @@ class RobotClient:
             self.talk(message)
             return False
 
+    def gesture_switch_talk(self, mode, message, annotated_text, off_now):
+        """
+        Says a reply that carries PepperBox GestureSwitch instructions.
+        1. Calls GestureSwitch.off_now() if the reply opens with gestures off (off_now), else GestureSwitch.on().
+        2. Says annotated_text, the reply with the instructions in it, through animated speech with the body-language mode.
+        3. Calls GestureSwitch.on() afterwards in every case, so gestures can run between replies.
+        4. On a proxy error, says message plainly instead.
+        Returns:
+            tuple: (whether animated speech completed, whether the GestureSwitch call in step 1 succeeded)
+        """
+        switched = False
+        try:
+            switched = self._gesture_switch("off_now" if off_now else "on")
+            if self.verbose:
+                print(f"[DEBUG] RobotClient.gesture_switch_talk ({mode}): '{annotated_text}'")
+            self.logger.info("Speech", {"text": annotated_text, "type": "animated", "mode": mode, "off_now": off_now})
+            self.client.ALAnimatedSpeech.say(annotated_text, {"bodyLanguageMode": mode})
+            return True, switched
+        except NaoqiProxyError as e:
+            self.logger.warning("SpeechFallback", {"mode": mode, "error": str(e)})
+            self.talk(message)
+            return False, switched
+        finally:
+            self._gesture_switch("on")
+
+    def gesture_switch_on(self):
+        """Calls GestureSwitch.on(), which lets Pepper's gestures run, and logs a failure."""
+        self._gesture_switch("on")
+
+    def _gesture_switch(self, method):
+        """Calls a GestureSwitch method and returns whether it succeeded; logs a failed call, and off_now() returning False, without raising."""
+        try:
+            result = getattr(self.client.GestureSwitch, method)()
+        except NaoqiProxyError as e:
+            self.logger.warning("GestureSwitchCallFailed", {"method": method, "error": str(e)})
+            return False
+        if method == "off_now" and result is False:
+            self.logger.warning("GestureSwitchCallFailed", {"method": method, "error": "GestureSwitch did not take the arms"})
+            return False
+        return True
+
     def play_animation_blocking(self, animation_name):
         """Plays an animation and waits for it to finish."""
         try:
