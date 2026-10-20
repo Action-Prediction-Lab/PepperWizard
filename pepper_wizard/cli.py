@@ -1023,6 +1023,9 @@ def _dispatch_to_llm(user_text, *, source, llm, stt, robot_client, logger):
             try:
                 instructions = request_instructions(result.gesture_instructions, reply.replace("^", ""))
                 instructions_status = "ok"
+                # The controller's answer names the mode for the turn it planned, which llm.json may not show yet.
+                if isinstance(instructions.get("body_language"), str) and instructions["body_language"]:
+                    body_language = instructions["body_language"]
             except GestureInstructionsUnavailable as e:
                 instructions_status = "unavailable"
                 logger.warning("GestureInstructionsUnavailable", {"error": str(e)})
