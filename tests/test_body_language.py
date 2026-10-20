@@ -140,6 +140,22 @@ class DispatchTests(unittest.TestCase):
         robot.body_language_talk.assert_not_called()
         self.assertEqual((self.turn["gesture_instructions"], self.turn["off_now"], self.turn["speech_fallback"], self.turn["gesture_switch_call_failed"]), ("ok", True, False, False))
 
+    def test_the_mode_in_the_answer_is_the_mode_pepper_speaks_with_and_the_turn_records(self):
+        """When the answer names a mode, Pepper speaks the reply with that mode instead of the mode in the config."""
+        answer = {"status": "ok", "text": "I am ^pCall(GestureSwitch.on()) here", "off_now": False, "turn": 4, "duty": 0.2, "body_language": "random"}
+        with patch("pepper_wizard.cli.request_instructions", return_value=answer):
+            robot, fields = self.dispatch("contextual", gesture_instructions=INSTRUCTIONS)
+        robot.gesture_switch_talk.assert_called_once_with("random", "I am ^here", answer["text"], False)
+        self.assertEqual(fields, ("random", "animated", False))
+
+    def test_an_answer_without_a_mode_keeps_the_mode_in_the_config(self):
+        """When the answer names no mode, Pepper speaks the reply with the mode in the config."""
+        answer = {"status": "ok", "text": "I am ^pCall(GestureSwitch.on()) here", "off_now": False, "turn": 4, "duty": 0.2}
+        with patch("pepper_wizard.cli.request_instructions", return_value=answer):
+            robot, fields = self.dispatch("contextual", gesture_instructions=INSTRUCTIONS)
+        robot.gesture_switch_talk.assert_called_once_with("contextual", "I am ^here", answer["text"], False)
+        self.assertEqual(fields, ("contextual", "animated", False))
+
     def test_a_failed_gesture_switch_call_before_the_reply_is_recorded_on_the_turn(self):
         answer = {"status": "ok", "text": '^pCall(ALMotion.setBreathEnabled("Arms", true)) I am ^pCall(GestureSwitch.on()) here', "off_now": True, "turn": 4, "duty": 0.2}
         with patch("pepper_wizard.cli.request_instructions", return_value=answer):
